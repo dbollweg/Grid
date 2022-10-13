@@ -3,15 +3,7 @@
 using namespace std;
 using namespace Grid;
 
-
-void PointSource(Coordinate &coor,LatticePropagator &source)
-{
-  source=Zero();
-  SpinColourMatrix kronecker; kronecker=1.0;
-  pokeSite(kronecker,source,coor);
-}
-
-void MakePhase(Coordinate mom,LatticeComplex &phase)
+void MakePhase(Coordinate &mom,LatticeComplex &phase)
 {
   GridBase *grid = phase.Grid();
   auto latt_size = grid->GlobalDimensions();
@@ -28,13 +20,14 @@ void MakePhase(Coordinate mom,LatticeComplex &phase)
 }
 
 
-void FourierPropagator(LatticePropagator &propagator, Coordinate p_in, LatticeComplex &phase) 
+void VolumeSource(Coordinate &mom, LatticePropagator &source)
 {
-    //TODO
-    MakePhase(p_in, phase); //exp(ipx)
-    propagator = phase * propagator;
+  source=1.0;
+  
+  LatticeComplex phase(source.Grid());
+  MakePhase(mom,phase);
 
-    //sum over 4-vol?
+  source = phase * source;
 }
 
 
@@ -72,6 +65,97 @@ void Solve(Action &D,LatticePropagator &source,LatticePropagator &propagator)
   }
 }
 
+template<class Action>
+LatticePropagator PhasedPropagator(Action &D, Coordinate p_in, LatticeColourMatrix &gauge_transformation)
+{
+  //Create Volumesource, rotate to landau gauge, solve for propagator, multiply phase
+  std::cout << GridLogMessage << "Creating Phased Propagator" << std::endl;
+  GridBase *UGrid = D.GaugeGrid();
+
+  LatticePropagator src4 (UGrid);
+  LatticePropagator result (UGrid);
+  LatticeComplex phase (UGrid);
+
+  VolumeSource(p_in, src4);
+
+  src4 = gauge_transformation * src4;
+
+  Solve(D, src4, result);
+  std::cout << GridLogMessage << "propagator finished, multiplying phase" << std::endl;
+  
+  Coordinate minus_p_in(p_in);
+  for(size_t i =0;i < p_in.size() ;i++){
+    minus_p_in[i] = -1.0 * p_in[i];
+  }
+  std::cout << GridLogMessage << "calling MakePhase" << std::endl;
+  MakePhase(minus_p_in, phase); //Multiply with exp(-i p_in x) (see equation (8) in https://arxiv.org/abs/1006.0422v2)
+  std::cout << GridLogMessage << "multiplying phase" << std::endl;
+  result = phase * result;
+  std::cout << GridLogMessage << "returning from PhasedPropagator" << std::endl;
+  return result;
+}
+
+template<class Action>
+auto ExternalLeg(Action &D, Coordinate p, LatticeColourMatrix &gauge_transformation)
+{
+  GridBase *UGrid = D.GaugeGrid();
+
+  LatticePropagator G(UGrid);
+
+  G = PhasedPropagator(D, p, gauge_transformation);
+  std::cout << GridLogMessage << "Calculating Lattice sum of phased propagator" << std::endl;
+  return sum(G);
+}
+
+template<class Action>
+auto BilinearVertex(Action &D, Coordinate p1, Coordinate p2, LatticeColourMatrix &gauge_transformation)
+{
+  //Create Phased propagators with momenta p1 and p2, then construct vertices for the 16 Gamma combinations
+  GridBase *UGrid = D.GaugeGrid();
+  
+  LatticePropagator G1(UGrid);
+  LatticePropagator G2(UGrid);
+
+  G1 = PhasedPropagator(D, p1, gauge_transformation);
+  G2 = PhasedPropagator(D, p2, gauge_transformation);
+
+  std::array<SpinColourMatrix, 16> vertex;
+
+  
+  for (size_t i = 0; i < 16; i++) 
+  {
+    Gamma G5(Gamma::Algebra::Gamma5);
+    Gamma Gi(Gamma::gall[i]);
+    vertex[i] = sum((G5 * adj(G1) * G5) * Gi * G2);
+  }
+
+  return vertex;
+
+}
+
+template<class Action>
+auto FourQuarkOperator(Action &D, Coordinate p1, Coordinate p2, LatticeColourMatrix &gauge_transformation)
+{
+  GridBase *FGrid = D.FermionGrid();
+
+  LatticePropagator G1(FGrid);
+  LatticePropagator G2(FGrid);
+
+  G1 = PhasedPropagator(D, p1, gauge_transformation);
+  G2 = PhasedPropagator(D, p2, gauge_transformation);
+
+  std::array<SpinColourMatrix, 16> FourQuarkOp{(FGrid)};
+
+  for (size_t i = 0; i < 16; i++) 
+  {
+    Gamma G5(Gamma::Algebra::Gamma5);
+    Gamma Gi(Gamma::gall[i]);
+    FourQuarkOp[i] = sum(((G5 * adj(G1) * G5) * Gi * G2) * ((G5 * adj(G1) * G5) * Gi * G2));
+  }
+
+  return FourQuarkOp;
+}
+
 int main (int argc, char ** argv)
 {
   const int Ls=8;
@@ -106,8 +190,7 @@ int main (int argc, char ** argv)
   else
   {
     std::cout<<GridLogMessage <<"Using hot configuration"<<std::endl;
-    SU<Nc>::ColdConfiguration(Umu);
-    //    SU<Nc>::HotConfiguration(RNG4,Umu);
+    SU<Nc>::HotConfiguration(RNG4,Umu);
     config="HotConfig";
   }
 
@@ -130,31 +213,37 @@ int main (int argc, char ** argv)
     FermActs.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c));
    
   }
-
-  LatticePropagator point_source(UGrid);
- 
-  Coordinate Origin({0,0,0,0});
-  PointSource   (Origin,point_source);
   
-  std::vector<LatticePropagator> PointProps(nmass,UGrid);
- 
   FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,alpha,10000,1.0e-12, 1.0e-12,true,Nd);
   Uprime = Umu;
   SU<Nc>::GaugeTransform(Uprime, gauge_transformation);
+  
 
-  //can i just rotate the propagator like this? psi' = U_{trafo}*psi?
-  point_source = gauge_transformation * point_source;
-  
-  //TODO: FT of gfixed point source
+  Coordinate mom1({-1,0,1,0});
+  Coordinate mom2({0,1,1,0});
 
-  LatticeComplex phase(UGrid);
-  Coordinate mom({0,0,0,0});
-  
-  
+  //std::array<SpinColourMatrix, 16> vertex{(FGrid)};
+  std::vector<std::array<SpinColourMatrix, 16> > bilinear_vertices; 
+  std::vector<SpinColourMatrix> leg_1; 
+  std::vector<SpinColourMatrix> leg_2; 
+
   for(int m=0;m<nmass;m++) {
+    std::cout << GridLogMessage << "Calculating ExternalLeg 1" << std::endl;
+    leg_1.push_back(ExternalLeg(*(FermActs[m]), mom1, gauge_transformation));
 
-    Solve(*FermActs[m],point_source   ,PointProps[m]);  
-    FourierPropagator(PointProps[m], mom, phase);
+    std::cout << GridLogMessage << "Calculating ExternalLeg 2" << std::endl;
+    leg_2.push_back(ExternalLeg(*(FermActs[m]), mom2, gauge_transformation));
+
+    std::cout << GridLogMessage << "Calculating Bilinear vertices" << std::endl;
+    bilinear_vertices.push_back(BilinearVertex(*(FermActs[m]),mom1, mom2, gauge_transformation));
+  }
+
+  for(int m=0;m<nmass;m++) {
+    std::cout << GridLogMessage << "m = " << masses[m] << ":" << std::endl;
+    std::cout << GridLogMessage << leg_1[m] <<std::endl << std::endl;
+    std::cout << GridLogMessage << leg_2[m] << std::endl << std::endl;
+    std::cout << GridLogMessage << bilinear_vertices[m][0] << std::endl << std::endl;
+
 
   }
 
