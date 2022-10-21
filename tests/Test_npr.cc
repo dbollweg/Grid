@@ -44,7 +44,7 @@ void Solve(Action &D,LatticePropagator &source,LatticePropagator &propagator)
   
   ConjugateGradient<LatticeFermion> CG(1.0e-8,100000);
   SchurRedBlackDiagMooeeSolve<LatticeFermion> schur(CG);
-  ZeroGuesser<LatticeFermion> ZG; // Could be a DeflatedGuesser if have eigenvectors
+  ZeroGuesser<LatticeFermion> ZG; 
   for(int s=0;s<Nd;s++){
     for(int c=0;c<Nc;c++){
       PropToFerm<Action>(src4,source,s,c);
@@ -69,7 +69,6 @@ template<class Action>
 LatticePropagator PhasedPropagator(Action &D, Coordinate p_in, LatticeColourMatrix &gauge_transformation)
 {
   //Create Volumesource, rotate to landau gauge, solve for propagator, multiply phase
-  std::cout << GridLogMessage << "Creating Phased Propagator" << std::endl;
   GridBase *UGrid = D.GaugeGrid();
 
   LatticePropagator src4 (UGrid);
@@ -81,17 +80,13 @@ LatticePropagator PhasedPropagator(Action &D, Coordinate p_in, LatticeColourMatr
   src4 = gauge_transformation * src4;
 
   Solve(D, src4, result);
-  std::cout << GridLogMessage << "propagator finished, multiplying phase" << std::endl;
   
   Coordinate minus_p_in(p_in);
   for(size_t i =0;i < p_in.size() ;i++){
     minus_p_in[i] = -1.0 * p_in[i];
   }
-  std::cout << GridLogMessage << "calling MakePhase" << std::endl;
   MakePhase(minus_p_in, phase); //Multiply with exp(-i p_in x) (see equation (8) in https://arxiv.org/abs/1006.0422v2)
-  std::cout << GridLogMessage << "multiplying phase" << std::endl;
   result = phase * result;
-  std::cout << GridLogMessage << "returning from PhasedPropagator" << std::endl;
   return result;
 }
 
@@ -103,7 +98,6 @@ auto ExternalLeg(Action &D, Coordinate p, LatticeColourMatrix &gauge_transformat
   LatticePropagator G(UGrid);
 
   G = PhasedPropagator(D, p, gauge_transformation);
-  std::cout << GridLogMessage << "Calculating Lattice sum of phased propagator" << std::endl;
   return sum(G);
 }
 
@@ -136,15 +130,15 @@ auto BilinearVertex(Action &D, Coordinate p1, Coordinate p2, LatticeColourMatrix
 template<class Action>
 auto FourQuarkOperator(Action &D, Coordinate p1, Coordinate p2, LatticeColourMatrix &gauge_transformation)
 {
-  GridBase *FGrid = D.FermionGrid();
+  GridBase *UGrid = D.GaugeGrid();
 
-  LatticePropagator G1(FGrid);
-  LatticePropagator G2(FGrid);
+  LatticePropagator G1(UGrid);
+  LatticePropagator G2(UGrid);
 
   G1 = PhasedPropagator(D, p1, gauge_transformation);
   G2 = PhasedPropagator(D, p2, gauge_transformation);
 
-  std::array<SpinColourMatrix, 16> FourQuarkOp{(FGrid)};
+  std::array<SpinColourMatrix, 16> FourQuarkOp;
 
   for (size_t i = 0; i < 16; i++) 
   {
@@ -194,7 +188,7 @@ int main (int argc, char ** argv)
     config="HotConfig";
   }
 
-  std::vector<RealD> masses({ 0.03,0.04,0.45} ); // u/d, s, c 
+  std::vector<RealD> masses({ 0.03});//,0.04,0.45} ); // u/d, s, c 
 
   int nmass = masses.size();
 
@@ -219,32 +213,40 @@ int main (int argc, char ** argv)
   SU<Nc>::GaugeTransform(Uprime, gauge_transformation);
   
 
-  Coordinate mom1({-1,0,1,0});
-  Coordinate mom2({0,1,1,0});
+  //  Coordinate mom1({-1,0,1,0});
+  //   Coordinate mom2({0,1,1,0});
 
-  //std::array<SpinColourMatrix, 16> vertex{(FGrid)};
   std::vector<std::array<SpinColourMatrix, 16> > bilinear_vertices; 
   std::vector<SpinColourMatrix> leg_1; 
   std::vector<SpinColourMatrix> leg_2; 
 
   for(int m=0;m<nmass;m++) {
-    std::cout << GridLogMessage << "Calculating ExternalLeg 1" << std::endl;
-    leg_1.push_back(ExternalLeg(*(FermActs[m]), mom1, gauge_transformation));
+    for (int mom_factor = 1; mom_factor < 5; mom_factor++) 
+    {
+      Coordinate mom1({-mom_factor,0,mom_factor,0});
+      Coordinate mom2({0,mom_factor,mom_factor,0});
+      std::cout << GridLogMessage << "momentum factor " << mom_factor << std::endl;
+      std::cout << GridLogMessage << "Calculating ExternalLeg 1" << std::endl;
+      leg_1.push_back(ExternalLeg(*(FermActs[m]), mom1, gauge_transformation));
 
-    std::cout << GridLogMessage << "Calculating ExternalLeg 2" << std::endl;
-    leg_2.push_back(ExternalLeg(*(FermActs[m]), mom2, gauge_transformation));
+      std::cout << GridLogMessage << "Calculating ExternalLeg 2" << std::endl;
+      leg_2.push_back(ExternalLeg(*(FermActs[m]), mom2, gauge_transformation));
 
-    std::cout << GridLogMessage << "Calculating Bilinear vertices" << std::endl;
-    bilinear_vertices.push_back(BilinearVertex(*(FermActs[m]),mom1, mom2, gauge_transformation));
+      std::cout << GridLogMessage << "Calculating Bilinear vertices" << std::endl;
+      bilinear_vertices.push_back(BilinearVertex(*(FermActs[m]),mom1, mom2, gauge_transformation));
+    }
   }
 
   for(int m=0;m<nmass;m++) {
-    std::cout << GridLogMessage << "m = " << masses[m] << ":" << std::endl;
-    std::cout << GridLogMessage << leg_1[m] <<std::endl << std::endl;
-    std::cout << GridLogMessage << leg_2[m] << std::endl << std::endl;
-    std::cout << GridLogMessage << bilinear_vertices[m][0] << std::endl << std::endl;
-
-
+    for (int mom_factor = 1; mom_factor < 5; mom_factor++) 
+    {
+      int index = m*4+mom_factor-1;
+      std::cout << GridLogMessage << "m = " << masses[m] << ", mom_factor = " << mom_factor << std::endl;
+      std::cout << GridLogMessage << "leg 1:" << std::endl << leg_1[index] <<std::endl << std::endl;
+      std::cout << GridLogMessage << "leg 2:" << std::endl << leg_2[index] << std::endl << std::endl;
+      std::cout << GridLogMessage << "unamputated vertex [gamma5]:" << std::endl << bilinear_vertices[index][1] << std::endl << std::endl;
+     
+    }
   }
 
   
