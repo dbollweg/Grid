@@ -3,6 +3,41 @@
 using namespace std;
 using namespace Grid;
 
+ComplexD mean(const std::vector<ComplexD>& data)
+{
+    int N = data.size();
+    ComplexD mean(0.0);
+    for(int i=0; i<N; ++i){ mean += data[i]; }
+    return mean/ComplexD(N);
+}
+
+ComplexD jack_mean(const std::vector<ComplexD>& data, int sample)
+{
+    int N = data.size();
+    ComplexD mean(0.0);
+    for(int i=0; i<N; ++i){ if(i != sample){ mean += data[i]; } }
+    return mean/ComplexD(N-1);
+}
+
+ComplexD jack_std(const std::vector<ComplexD>& jacks, ComplexD mean)
+{
+    int N = jacks.size();
+    ComplexD std(0.0);
+    for(int i=0; i<N; ++i){ std += std::pow(jacks[i]-mean, 2.0); }
+    return std::sqrt(ComplexD(N-1)/ComplexD(N)*std);
+}
+
+std::vector<ComplexD> jack_stats(const std::vector<ComplexD>& data)
+{
+    int N = data.size();
+    std::vector<ComplexD> jack_samples(N);
+    std::vector<ComplexD> jack_stats(2);
+
+    jack_stats[0] = mean(data);
+    for(int i=0; i<N; i++){ jack_samples[i] = jack_mean(data,i); }
+    jack_stats[1] = jack_std(jack_samples, jack_stats[0]);
+    return jack_stats;
+}
 
 SpinColourMatrix invert_eigen(SpinColourMatrix input)
 {
@@ -63,7 +98,6 @@ void VolumeSource(Coordinate &mom, LatticePropagator &source)
   MakePhase(mom,phase);
 
   source = phase * source;
- // std::cout<< GridLogMessage << "Testing VolumeSource" << source <<std::endl;
 }
 
 
@@ -102,44 +136,138 @@ void Solve(Action &D,LatticePropagator &source,LatticePropagator &propagator)
   }
 }
 
-template<class Action>
-void Dslash_mult(Action &D, LatticePropagator &source, LatticePropagator &result)
-{
-  GridBase *UGrid = D.GaugeGrid();
-  GridBase *FGrid = D.FermionGrid();
-
-  LatticeFermion src4 (UGrid);
-  LatticeFermion src5 (FGrid);
-  LatticeFermion result5(FGrid);
-  LatticeFermion result4(UGrid);
-
-  for(int s=0;s<Nd;s++){
-    for(int c=0;c<Nc;c++) {
-      PropToFerm<Action>(src4,source,s,c);
-      D.ImportPhysicalFermionSource(src4,src5);
-
-      std::cout << GridLogMessage << "spin " << s << " color " << c << " norm2(src5) " << norm2(src5) << " norm2(result5) " << norm2(result5) <<std::endl;
-      D.M(src5,result5);
-      std::cout << GridLogMessage << "spin " << s << " color " << c << " norm2(src5) " << norm2(src5) << " norm2(result5) " << norm2(result5) <<std::endl;
-      D.ExportPhysicalFermionSource(result5,result4);
-
-      std::cout << GridLogMessage << "spin " << s << " color " << c << " norm2(src4) " << norm2(src4) << " norm2(result4) " << norm2(result4) <<std::endl;
-      FermToProp<Action>(result,result4,s,c);
-    }
-  }
-}
 
 class NprFile: Serializable {
   public:
-  GRID_SERIALIZABLE_CLASS_MEMBERS(NprFile, std::vector<SpinColourMatrix>, data);
+  GRID_SERIALIZABLE_CLASS_MEMBERS(NprFile, std::vector<SpinColourMatrix>, data_bv, SpinColourMatrix, data_leg1, SpinColourMatrix, data_leg2);
 };
+
+
+
+//TODO put together stats analysis + contraction class
+template<class action>
+class NPR_analyze {
+  public:
+  NPR_analyze(action &D, std::vector<std::string> filenames) : _D(D), _UGrid(_D.GaugeGrid()), _filenames(filenames) {
+    
+    for (size_t i=0; i < _filenames.size(); i++) {
+
+      NprFile tmpfile;
+      data.push_back(tmpfile);
+      BinaryReader BR(_filenames[i]);
+      
+      try{ read(BR,"NprFile",data[i]); }
+      catch(const std::bad_alloc&) {
+        std::cout << GridLogError << "Error loading " << _filenames[i] << std::endl;
+      }
+    
+    }
+  
+  }
+
+  auto Average();
+
+
+  private:
+  action &_D;
+  GridBase *_UGrid;
+  std::vector<std::string> _filenames;
+  std::vector<NprFile> data;
+};
+
+template<class action>
+auto NPR_analyze<action>::Average() {
+
+    std::vector<ComplexD> tmp_data_leg1(_filenames.size()); 
+    std::vector<ComplexD> tmp_data_leg2(_filenames.size());
+    std::array<std::vector<ComplexD>,16> tmp_data_bv;
+    for (size_t g = 0; g < 16; g++) {
+      tmp_data_bv[g].resize(_filenames.size());
+    }
+
+    SpinColourMatrix avg_leg1;
+    SpinColourMatrix avg_leg2;
+    std::array<SpinColourMatrix,16> avg_bv;   
+
+
+    SpinColourMatrix err_leg1;
+    SpinColourMatrix err_leg2;
+    std::array<SpinColourMatrix,16> err_bv; 
+
+      for (int s1 = 0; s1 < Nd; s1++) {
+        for (int c1 = 0; c1 < Nc; c1++) {
+          for (int s2 = 0; s2 < Nd; s2++) {
+            for (int c2 = 0; c2 < Nc; c2++) {
+
+
+              for (size_t i = 0; i < data.size(); i++) {  
+
+                tmp_data_leg1[i]=data[i].data_leg1()(s1,s2)(c1,c2);
+                tmp_data_leg2[i]=data[i].data_leg2()(s1,s2)(c1,c2);
+                for (size_t g = 0; g < 16; g++) { 
+                  tmp_data_bv[g][i]=data[i].data_bv[g]()(s1,s2)(c1,c1);
+                }
+
+            }
+
+
+            std::vector<ComplexD> leg1 = jack_stats(tmp_data_leg1);
+            std::vector<ComplexD> leg2 = jack_stats(tmp_data_leg2);
+            std::array<std::vector<ComplexD>,16> bv;
+            for (size_t g = 0; g < 16; g++) {
+              bv[g] = jack_stats(tmp_data_bv[g]);
+            }
+
+            avg_leg1()(s1,s2)(c1,c2) = leg1[0];
+            avg_leg2()(s1,s2)(c1,c2) = leg2[0];
+
+            for (size_t g = 0; g < 16; g++) {
+              avg_bv[g]()(s1,s2)(c1,c2) = bv[g][0];
+            }
+
+
+            err_leg1()(s1,s2)(c1,c2) = leg1[1];
+            err_leg2()(s1,s2)(c1,c2) = leg2[1];
+
+            for (size_t g = 0; g < 16; g++) {
+              err_bv[g]()(s1,s2)(c1,c2) = bv[g][1];
+            }
+            
+          }          
+        }
+      }
+    }
+
+  //do contraction now (How to do error propagation?)
+
+
+  SpinColourMatrix leginv1 = invert_eigen(avg_leg1);
+  SpinColourMatrix leginv2 = invert_eigen(avg_leg2);
+  std::array<ComplexD, 16> result;
+  for (size_t i = 0; i < 16; i++) 
+        {
+
+            Gamma G(Gamma::gall[i]);
+            Gamma G5(Gamma::Algebra::Gamma5);
+            auto tmp = leginv1 * avg_bv[i] * (G5 * adj(leginv2) * G5);
+           
+            auto vol=_UGrid->_gsites;
+            RealD volD = vol;
+            
+            result[i] = volD*TensorRemove(trace(tmp * G));
+            std::cout << GridLogMessage << "test gamma " << i << " " << result[i] << std::endl;
+            
+        }
+  return result;
+}
 
 template<class action>
 class NPR {
     public:
-    NPR(action &D, LatticeGaugeField &Umu) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid), _gauge_transformation(_UGrid) 
+    NPR(action &D, LatticeGaugeField &Umu) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
     {
-        FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,_gauge_transformation,_alpha,10000,1.0e-12, 1.0e-12,true,-1);//should be -1    
+        LatticeColourMatrix gauge_transformation(_UGrid);
+        FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,_alpha,10000,1.0e-12, 1.0e-12,true,-1);//should be -1    
     }
     
     LatticePropagator PhasedPropagator(Coordinate p);
@@ -161,16 +289,18 @@ class NPR {
 
     SpinColourMatrix ExternalLeg(LatticePropagator G) {return sum(G);};
 
-    void calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta);
+    //for testing only
+    void test_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta);
 
-    void save_results();
+
+    void calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta, std::string base_filename);
+
 
     private:
     action &_D;
     GridBase *_UGrid;
     LatticePropagator _G1;
     LatticePropagator _G2;
-    LatticeColourMatrix _gauge_transformation;
     RealD _alpha = 0.1;
 
 };
@@ -193,13 +323,13 @@ LatticePropagator NPR<action>::PhasedPropagator(Coordinate p)
 };
 
 template <class action>
-void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta) 
+void NPR<action>::test_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta) 
 {
     for (auto mom: momenta) {
 
         _G1 = PhasedPropagator(mom.first);
         _G2 = PhasedPropagator(mom.second);
-        NprFile NF;
+        
         
         std::array<SpinColourMatrix, 16> bilinear_vertices = BilinearVertex(_G1,_G2);
         SpinColourMatrix leg1 = ExternalLeg(_G1);
@@ -208,58 +338,69 @@ void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > 
         SpinColourMatrix leginv1 = invert_eigen(leg1);
         SpinColourMatrix leginv2 = invert_eigen(leg2);
         LatticePropagator test(_UGrid);
-        test = 1.0;
 
-        //This part is for testing on unit config, should give 12 for each gamma
-
-        std::cout << GridLogMessage << "test inversion 1 " << leg1*leginv1 << std::endl << std::endl;
-        std::cout << GridLogMessage << "printing leg1 " << leg1 << std::endl << std::endl;
-        std::cout << GridLogMessage << "printing invleg1 " << leginv1 << std::endl << std::endl;
-        
-        std::cout << GridLogMessage << "trace invleg1*leg1 " << TensorRemove(trace(leg1*leginv1)) << std::endl;
-        std::cout << GridLogMessage << "testing norm of sum" << TensorRemove(trace(sum(test))) << std::endl;
-
-        std::cout << GridLogMessage << "test inversion 2" << leg2*leginv2 << std::endl << std::endl;
-        std::cout << GridLogMessage << "printing leg2 " << leg2 << std::endl << std::endl;
-        std::cout << GridLogMessage << "printing invleg2 " << leginv2 << std::endl << std::endl;
-        
-        std::cout << GridLogMessage << "trace invleg2*leg2 " << TensorRemove(trace(leg2*leginv2)) << std::endl;
         for (size_t i = 0; i < 16; i++) 
         {
 
             Gamma G(Gamma::gall[i]);
             Gamma G5(Gamma::Algebra::Gamma5);
             auto tmp = leginv1 * bilinear_vertices[i] * (G5 * adj(leginv2) * G5);
-            NF.data.push_back(tmp);
+           
             auto vol=_UGrid->_gsites;
             RealD volD = vol;
-            auto result = TensorRemove(trace(tmp * G));
+            auto result = volD*TensorRemove(trace(tmp * G));
             std::cout << GridLogMessage << "test gamma " << i << " " << result << std::endl;
             
         }
 
 
-        //testing I/O 
-        std::string file = "test_mom_" + std::to_string(mom.first[0]) + std::to_string(mom.first[1]) + std::to_string(mom.first[2]) + std::to_string(mom.first[3]) + ".txt";
         
-        TextWriter WR(file); 
-        write(WR,"NprFile",NF);
-        
-        TextReader RD(file);
-        read(RD, "NprFile",NF);
-        std::vector<SpinColourMatrix> readtest;
-        readtest = NF.data;
-
-        for (auto dat: readtest) {
-          std::cout << GridLogMessage << "Testing FileReader: " << dat << std::endl;
-        }
-
-        for (auto dat: NF.data) {
-          std::cout << GridLogMessage << "Testing FileRead (reference data) " << dat << std::endl;
-        }
 
     }
 };
+
+
+
+
+template <class action>
+void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > momenta, std::string base_filename) 
+{
+    for (auto mom: momenta) {
+        NprFile save_file;
+
+        std::string filename = base_filename + "_p1_";
+        for (auto m1: mom.first){
+          filename += std::to_string(m1);
+        }
+
+        filename += "_p2_";
+        for (auto m2: mom.second){
+          filename += std::to_string(m2);
+        }
+
+        filename += ".dat";
+        
+        _G1 = PhasedPropagator(mom.first);
+        _G2 = PhasedPropagator(mom.second);
+
+        std::array<SpinColourMatrix, 16> bilinear_vertices = BilinearVertex(_G1,_G2);
+
+        SpinColourMatrix leg1 = ExternalLeg(_G1);
+        SpinColourMatrix leg2 = ExternalLeg(_G2);
+
+
+        BinaryWriter BWR(filename);
+        for (auto bv: bilinear_vertices) {
+          save_file.data_bv.push_back(bv);
+        }
+        save_file.data_leg1 = leg1;
+        save_file.data_leg2 = leg2;
+
+        write(BWR,"NprFile", save_file);
+
+    }
+};
+
 
 int main (int argc, char ** argv)
 {
@@ -313,7 +454,7 @@ int main (int argc, char ** argv)
   for(auto mass: masses) {
 
     RealD M5=1.0;
-    RealD b=1.5;// Scale factor b+c=2, b-c=1
+    RealD b=1.5;
     RealD c=0.5;
     
     FermActs.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c));
@@ -327,12 +468,19 @@ int main (int argc, char ** argv)
   momenta.push_back(pair1);
 
   NPR<MobiusFermionR> npr_obj(*(FermActs[0]), Umu);
-  npr_obj.calculate_NPR(momenta);
+  npr_obj.test_NPR(momenta);
 
+  std::string testfilename("testfile");
+  npr_obj.calculate_NPR(momenta, testfilename);
+  testfilename += "_p1_0000_p2_0000.dat";
+  std::vector<std::string> filenames;
+  filenames.push_back(testfilename);
+  filenames.push_back("testfile1_p1_0000_p2_0000.dat");
+  filenames.push_back("testfile2_p1_0000_p2_0000.dat");
 
+  NPR_analyze<MobiusFermionR> npr_reader(*(FermActs[0]),filenames);
 
-
-
+  auto tmp = npr_reader.Average();
   
   Grid_finalize();
 }
