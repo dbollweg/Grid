@@ -19,12 +19,12 @@ ComplexD jack_mean(const std::vector<ComplexD>& data, int sample)
     return mean/ComplexD(N-1);
 }
 
-ComplexD jack_std(const std::vector<ComplexD>& jacks, ComplexD mean)
+RealD jack_std(const std::vector<ComplexD>& jacks, ComplexD mean)
 {
     int N = jacks.size();
     ComplexD std(0.0);
-    for(int i=0; i<N; ++i){ std += std::pow(jacks[i]-mean, 2.0); }
-    return std::sqrt(ComplexD(N-1)/ComplexD(N)*std);
+    for(int i=0; i<N; ++i){ std += (jacks[i]-mean)*adj(jacks[i]-mean); }
+    return std::sqrt(RealD(N-1)/RealD(N)*std.real());
 }
 
 std::vector<ComplexD> jack_stats(const std::vector<ComplexD>& data)
@@ -35,7 +35,7 @@ std::vector<ComplexD> jack_stats(const std::vector<ComplexD>& data)
 
     jack_stats[0] = mean(data);
     for(int i=0; i<N; i++){ jack_samples[i] = jack_mean(data,i); }
-    jack_stats[1] = jack_std(jack_samples, jack_stats[0]);
+    jack_stats[1] = ComplexD(jack_std(jack_samples, jack_stats[0]),0);
     return jack_stats;
 }
 
@@ -249,13 +249,13 @@ auto NPR_analyze<action>::Average() {
 
             Gamma G(Gamma::gall[i]);
             Gamma G5(Gamma::Algebra::Gamma5);
-            auto tmp = leginv1 * avg_bv[i] * (G5 * adj(leginv2) * G5);
+            auto tmp = (G5 * adj(leginv1) * G5)* avg_bv[i] * leginv2;
            
             auto vol=_UGrid->_gsites;
             RealD volD = vol;
             
-            result[i] = volD*TensorRemove(trace(tmp * G));
-            std::cout << GridLogMessage << "test gamma " << i << " " << result[i] << std::endl;
+            result[i] = volD*TensorRemove(trace(tmp * G))/12.0;
+            std::cout << GridLogMessage << "Lambda(gamma) " << i << " " << result[i] << std::endl;
             
         }
   return result;
@@ -267,7 +267,7 @@ class NPR {
     NPR(action &D, LatticeGaugeField &Umu) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
     {
         LatticeColourMatrix gauge_transformation(_UGrid);
-        FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,_alpha,10000,1.0e-12, 1.0e-12,true,-1);//should be -1    
+        FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,_alpha,10000,1.0e-6, 1.0e-6,false,-1);//should be -1    
     }
     
     LatticePropagator PhasedPropagator(Coordinate p);
@@ -281,7 +281,7 @@ class NPR {
         {
             Gamma G5(Gamma::Algebra::Gamma5);
             Gamma Gi(Gamma::gall[i]);
-            vertex[i] = sum((G5 * adj(G1) * G5) * Gi * adj(G2));
+            vertex[i] = sum((G5 * adj(G1) * G5) * Gi * G2);
         }
 
         return vertex;
@@ -344,11 +344,11 @@ void NPR<action>::test_NPR(std::vector<std::pair<Coordinate, Coordinate> > momen
 
             Gamma G(Gamma::gall[i]);
             Gamma G5(Gamma::Algebra::Gamma5);
-            auto tmp = leginv1 * bilinear_vertices[i] * (G5 * adj(leginv2) * G5);
-           
+            auto tmp = ((G5 * adj(leginv1) * G5) * bilinear_vertices[i] * leginv2);
+            std::cout << GridLogMessage << "Pi " << i << " " << tmp << std::endl;
             auto vol=_UGrid->_gsites;
             RealD volD = vol;
-            auto result = volD*TensorRemove(trace(tmp * G));
+            auto result = volD*TensorRemove(trace(tmp * G))/12.0;
             std::cout << GridLogMessage << "test gamma " << i << " " << result << std::endl;
             
         }
@@ -380,13 +380,36 @@ void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > 
 
         filename += ".dat";
         
+        std::cout << GridLogMessage << "first phased propagator" << std::endl;
         _G1 = PhasedPropagator(mom.first);
+        std::cout << GridLogMessage << "second phased propagator" << std::endl;
         _G2 = PhasedPropagator(mom.second);
 
+        std::cout << GridLogMessage << "Instantiating BilinearVertex" << std::endl;
         std::array<SpinColourMatrix, 16> bilinear_vertices = BilinearVertex(_G1,_G2);
 
+        std::cout << GridLogMessage << "First external leg" <<std::endl;
         SpinColourMatrix leg1 = ExternalLeg(_G1);
+
+        std::cout << GridLogMessage << "Second external leg" <<std::endl;
         SpinColourMatrix leg2 = ExternalLeg(_G2);
+
+        SpinColourMatrix leginv1 = invert_eigen(leg1);
+        SpinColourMatrix leginv2 = invert_eigen(leg2);
+
+        for (size_t i = 0; i < 16; i++) 
+        {
+
+            Gamma G(Gamma::gall[i]);
+            Gamma G5(Gamma::Algebra::Gamma5);
+            auto tmp = (G5 * adj(leginv1) * G5) * bilinear_vertices[i] * leginv2;
+           
+            auto vol=_UGrid->_gsites;
+            RealD volD = vol;
+            auto result = volD*TensorRemove(trace(tmp * G))/12.0;
+            std::cout << GridLogMessage << "test gamma " << i << " " << result << std::endl;
+            
+        }
 
 
         BinaryWriter BWR(filename);
@@ -404,10 +427,9 @@ void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > 
 
 int main (int argc, char ** argv)
 {
-  const int Ls=8;
+  const int Ls=16;
 
   Grid_init(&argc,&argv);
-
   // Double precision grids
   GridCartesian         * UGrid   = SpaceTimeGrid::makeFourDimGrid(GridDefaultLatt(), 
 								   GridDefaultSimd(Nd,vComplex::Nsimd()),
@@ -441,7 +463,7 @@ int main (int argc, char ** argv)
     config="HotConfig";
   }
 
-  std::vector<RealD> masses({ 0.03});//,0.04,0.45} ); // u/d, s, c 
+  std::vector<RealD> masses({ 0.01});//,0.04,0.45} ); // u/d, s, c 
 
   int nmass = masses.size();
 
@@ -453,7 +475,7 @@ int main (int argc, char ** argv)
 
   for(auto mass: masses) {
 
-    RealD M5=1.0;
+    RealD M5=1.8;
     RealD b=1.5;
     RealD c=0.5;
     
@@ -461,17 +483,23 @@ int main (int argc, char ** argv)
    
   }
   std::vector<std::pair<Coordinate, Coordinate> > momenta;
-  Coordinate mom1({-1,0,1,0});
-  Coordinate mom2({0,1,1,0});
-  Coordinate mom0({0,0,0,0});
-  std::pair<Coordinate, Coordinate> pair1(mom0,mom0);
-  momenta.push_back(pair1);
+ 
+  //Coordinate mom0({0,0,0,0});
+    Coordinate mom1({-2,0,2,0});
+    Coordinate mom2({0,2,2,0});
+   
+    std::pair<Coordinate, Coordinate> mompair(mom1,mom2);
+    momenta.push_back(mompair);
+  
 
   NPR<MobiusFermionR> npr_obj(*(FermActs[0]), Umu);
-  npr_obj.test_NPR(momenta);
+  //npr_obj.test_NPR(momenta);
 
-  std::string testfilename("testfile");
-  npr_obj.calculate_NPR(momenta, testfilename);
+  std::string nprfilename(config);
+  nprfilename += "_npr_res";
+  npr_obj.calculate_NPR(momenta, nprfilename);
+
+  /*
   testfilename += "_p1_0000_p2_0000.dat";
   std::vector<std::string> filenames;
   filenames.push_back(testfilename);
@@ -480,7 +508,7 @@ int main (int argc, char ** argv)
 
   NPR_analyze<MobiusFermionR> npr_reader(*(FermActs[0]),filenames);
 
-  auto tmp = npr_reader.Average();
+  auto tmp = npr_reader.Average();*/
   
   Grid_finalize();
 }
