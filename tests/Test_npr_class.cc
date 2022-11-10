@@ -264,10 +264,10 @@ auto NPR_analyze<action>::Average() {
 template<class action>
 class NPR {
     public:
-    NPR(action &D, LatticeGaugeField &Umu) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
+    NPR(action &D) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
     {
-        LatticeColourMatrix gauge_transformation(_UGrid);
-        FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,_alpha,10000,1.0e-6, 1.0e-6,false,-1);//should be -1    
+            
+        
     }
     
     LatticePropagator PhasedPropagator(Coordinate p);
@@ -444,8 +444,7 @@ int main (int argc, char ** argv)
   LatticeGaugeField Umu(UGrid);
   LatticeColourMatrix gauge_transformation(UGrid);
   LatticeGaugeField Uprime(UGrid);
-
-  Real alpha=0.1;
+ 
 
   std::string config;
   if( argc > 1 && argv[1][0] != '-' )
@@ -462,7 +461,9 @@ int main (int argc, char ** argv)
     SU<Nc>::ColdConfiguration(Umu);
     config="HotConfig";
   }
-
+  Real alpha=0.1;
+  FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,alpha,100000,1.0e-10, 1.0e-10,false,-1);//should be -1
+  
   std::vector<RealD> masses({ 0.01});//,0.04,0.45} ); // u/d, s, c 
 
   int nmass = masses.size();
@@ -492,7 +493,7 @@ int main (int argc, char ** argv)
     momenta.push_back(mompair);
   
 
-  NPR<MobiusFermionR> npr_obj(*(FermActs[0]), Umu);
+  NPR<MobiusFermionR> npr_obj(*(FermActs[0]));
   //npr_obj.test_NPR(momenta);
 
   std::string nprfilename(config);
