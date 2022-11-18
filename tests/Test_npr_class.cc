@@ -7,7 +7,7 @@ using namespace Grid;
 
 int main (int argc, char ** argv)
 {
-  const int Ls=16;
+  const int Ls=12;
 
   Grid_init(&argc,&argv);
   // Double precision grids
@@ -41,10 +41,10 @@ int main (int argc, char ** argv)
     SU<Nc>::ColdConfiguration(Umu);
     config="HotConfig";
   }
-  Real alpha=0.1;
-  FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,alpha,100000,1.0e-10, 1.0e-10,false,-1);//should be -1
+  Real alpha=0.06;
+  FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,alpha,100000,1.0e-8, 1.0e-8,true,-1);//should be -1
   
-  std::vector<RealD> masses({ 0.01});//,0.04,0.45} ); // u/d, s, c 
+  std::vector<RealD> masses({ 0.00035, 0.0142, 0.188});//,0.04,0.45} ); // u/d, s, c 
 
   int nmass = masses.size();
 
@@ -56,29 +56,40 @@ int main (int argc, char ** argv)
 
   for(auto mass: masses) {
 
-    RealD M5=1.8;
-    RealD b=1.5;
-    RealD c=0.5;
+    RealD M5=1.4;
+    RealD b=2;
+    RealD c=1;
     
     FermActs.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c));
    
   }
   std::vector<std::pair<Coordinate, Coordinate> > momenta;
  
-  Coordinate mom1({-2,0,2,0});
-  Coordinate mom2({0,2,2,0});
+  for (int i = 2; i < 4; i++) {
+  Coordinate mom1({-i,0,i,0});
+  Coordinate mom2({0,i,i,0});
    
   std::pair<Coordinate, Coordinate> mompair(mom1,mom2);
   momenta.push_back(mompair);
-  
+  }
 
-  NPR<MobiusFermionR> npr_obj(*(FermActs[0]));
+  NPR<MobiusFermionR> npr_obj_l(*(FermActs[0]));
 
-  std::string nprfilename(config);
-  nprfilename += "_npr_res";
-  npr_obj.calculate_NPR(momenta, nprfilename);
+  std::string nprfilename_ml(config);
+  nprfilename_ml += "_npr_res_ml";
+  npr_obj_l.calculate_NPR(momenta, nprfilename_ml);
 
+  NPR<MobiusFermionR> npr_obj_s(*(FermActs[1]));
+
+  std::string nprfilename_ms(config);
+  nprfilename_ms += "_npr_res_ms";
+  npr_obj_s.calculate_NPR(momenta, nprfilename_ms);
   
-  
+  NPR<MobiusFermionR> npr_obj_c(*(FermActs[2]));
+
+  std::string nprfilename_mc(config);
+  nprfilename_mc += "_npr_res_mc";
+  npr_obj_c.calculate_NPR(momenta, nprfilename_mc);
+
   Grid_finalize();
 }

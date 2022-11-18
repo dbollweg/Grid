@@ -143,7 +143,6 @@ class NprFile: Serializable {
 
 
 
-//TODO put together stats analysis + contraction class
 class NPR_analyze {
   public:
   NPR_analyze(std::vector<std::string> filenames, Coordinate lattDim) : _filenames(filenames), vol(lattDim[0]*lattDim[1]*lattDim[2]*lattDim[3]) {
@@ -157,6 +156,7 @@ class NPR_analyze {
       try{ read(BR,"NprFile",data[i]); }
       catch(const std::bad_alloc&) {
         std::cout << GridLogError << "Error loading " << _filenames[i] << std::endl;
+        exit(EXIT_FAILURE);
       }
     
     }
@@ -250,31 +250,42 @@ void NPR_analyze::Average() {
 
   
   
-  
-  std::array<std::vector<ComplexD>,16> block_results;
+  std::vector<ComplexD> zv(N,0);  
+  std::array<std::vector<ComplexD>,5> block_results;
 
-  for (size_t i = 0; i < 16; i++) {
+  for (size_t i = 0; i < 5; i++) {
           
-    block_results[i].resize(N);
+    block_results[i]=zv;
   } 
 
   for (int j = 0; j < N; j++) {
+    
   for (size_t i = 0; i < 16; i++) 
         {
 
             Gamma G(Gamma::gall[i]);
             Gamma G5(Gamma::Algebra::Gamma5);
             auto tmp = (G5 * adj(inv_leg1[j]) * G5)* bv_blocks[i][j] * inv_leg2[j];
-
-            block_results[i][j] = RealD(vol)*TensorRemove(trace(tmp * G))/12.0;
+            if (i < 2) { block_results[i][j] = RealD(vol)*TensorRemove(trace(tmp * G))/12.0; } //S, PS
+            else if ( i < 6 ) {
+              block_results[2][j] += RealD(vol)*TensorRemove(trace(tmp * G))/48.0; //V
+            }
+            else if ( i < 10 ) {
+              block_results[3][j] -= RealD(vol) * TensorRemove(trace(tmp * G))/48.0; //A,  minus sign to correct for wrong ordering of g5 gamma
+            }
+            else {
+              block_results[4][j] -= RealD(vol) * TensorRemove(trace(tmp * G))/72.0; //T,  minus sign to correct for wrong ordering 
+            }
          
         }
   }
 
-  for (size_t i = 0; i < 16; i++) {
+  std::vector<std::string> channel_names({"S", "PS", "V", "A", "T"});
+
+  for (size_t i = 0; i < 5; i++) {
     std::vector<ComplexD> result(2);
     result = jack_stats(block_results[i]);
-    std::cout << GridLogMessage << "Lambda(gamma) " << i << ": " << result[0] << " +/- " << result[1]<<std::endl;
+    std::cout << GridLogMessage << "Lambda_ " << channel_names[i] << ": " << result[0] << " +/- " << result[1]<<std::endl;
   }
 }
 
@@ -319,7 +330,6 @@ class NPR {
     GridBase *_UGrid;
     LatticePropagator _G1;
     LatticePropagator _G2;
-    RealD _alpha = 0.1;
 
 };
 
