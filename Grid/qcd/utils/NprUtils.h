@@ -293,13 +293,13 @@ void NPR_analyze::Average() {
 template<class action>
 class NPR {
     public:
-    NPR(action &D) : _D(D), _UGrid(_D.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
+    NPR(action &D1, action &D2) : _D1(D1), _D2(D2), _UGrid(_D1.GaugeGrid()), _G1(_UGrid), _G2(_UGrid)
     {
             
         
     }
     
-    LatticePropagator PhasedPropagator(Coordinate p);
+    LatticePropagator PhasedPropagator(Coordinate p, bool in);
 
     auto BilinearVertex(LatticePropagator G1, LatticePropagator G2) 
     {
@@ -326,7 +326,8 @@ class NPR {
 
 
     private:
-    action &_D;
+    action &_D1;
+    action &_D2;
     GridBase *_UGrid;
     LatticePropagator _G1;
     LatticePropagator _G2;
@@ -334,7 +335,7 @@ class NPR {
 };
 
 template<class action>
-LatticePropagator NPR<action>::PhasedPropagator(Coordinate p)
+LatticePropagator NPR<action>::PhasedPropagator(Coordinate p, bool in)
 {
     LatticePropagator src(_UGrid);
     LatticePropagator result(_UGrid);
@@ -343,7 +344,8 @@ LatticePropagator NPR<action>::PhasedPropagator(Coordinate p)
     LatticeComplex phase(_UGrid);
     MakePhase(p,phase);
     VolumeSource(p, src);
-    Solve(_D, src, result); 
+    if (in) { Solve(_D1, src, result); }
+    else { Solve(_D2, src, result); }
 
     result = adj(phase) * result;
 
@@ -409,9 +411,9 @@ void NPR<action>::calculate_NPR(std::vector<std::pair<Coordinate, Coordinate> > 
         filename += ".dat";
         
         std::cout << GridLogMessage << "first phased propagator" << std::endl;
-        _G1 = PhasedPropagator(mom.first);
+        _G1 = PhasedPropagator(mom.first, true);
         std::cout << GridLogMessage << "second phased propagator" << std::endl;
-        _G2 = PhasedPropagator(mom.second);
+        _G2 = PhasedPropagator(mom.second, false);
 
         std::array<SpinColourMatrix, 16> bilinear_vertices = BilinearVertex(_G1,_G2);
 

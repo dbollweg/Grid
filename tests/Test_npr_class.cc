@@ -7,8 +7,8 @@ using namespace Grid;
 
 int main (int argc, char ** argv)
 {
-  const int Ls=12;
-
+  const int Ls=16; //3GeV
+  //const int Ls=12; //4GeV
   Grid_init(&argc,&argv);
   // Double precision grids
   GridCartesian         * UGrid   = SpaceTimeGrid::makeFourDimGrid(GridDefaultLatt(), 
@@ -44,11 +44,12 @@ int main (int argc, char ** argv)
   Real alpha=0.06;
   FourierAcceleratedGaugeFixer<PeriodicGimplR>::SteepestDescentGaugeFix(Umu,gauge_transformation,alpha,100000,1.0e-8, 1.0e-8,true,-1);//should be -1
   
-  std::vector<RealD> masses({ 0.00035, 0.0142, 0.188});//,0.04,0.45} ); // u/d, s, c 
-
+  //std::vector<RealD> masses({ 0.00035, 0.0142, 0.188}); 4GeV // u/d, s, c 
+  std::vector<RealD> masses({0.005, 0.0186, 0.243}); //3GeV
   int nmass = masses.size();
 
-  std::vector<MobiusFermionR *> FermActs;
+  std::vector<MobiusFermionR *> FermActs1;
+  std::vector<MobiusFermionR *> FermActs2;
   
   std::cout<<GridLogMessage <<"======================"<<std::endl;
   std::cout<<GridLogMessage <<"MobiusFermion action as Scaled Shamir kernel"<<std::endl;
@@ -59,8 +60,12 @@ int main (int argc, char ** argv)
     RealD M5=1.4;
     RealD b=2;
     RealD c=1;
-    
-    FermActs.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c));
+    MobiusFermionR::ImplParams p1;
+    MobiusFermionR::ImplParams p2;
+    p1.twist_n_2pi_L = AcceleratorVector<Real,Nd>({-0.5,0,0.5,0});
+    p2.twist_n_2pi_L = AcceleratorVector<Real,Nd>({0,0.5,0.5,0});
+    FermActs1.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c,p1));
+    FermActs2.push_back(new MobiusFermionR(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c,p2));
    
   }
   std::vector<std::pair<Coordinate, Coordinate> > momenta;
@@ -73,22 +78,22 @@ int main (int argc, char ** argv)
   momenta.push_back(mompair);
   }
 
-  NPR<MobiusFermionR> npr_obj_l(*(FermActs[0]));
+  NPR<MobiusFermionR> npr_obj_l(*(FermActs1[0]),*(FermActs2[0]));
 
   std::string nprfilename_ml(config);
-  nprfilename_ml += "_npr_res_ml";
+  nprfilename_ml += "_npr_res_ml_0.5twist";
   npr_obj_l.calculate_NPR(momenta, nprfilename_ml);
 
-  NPR<MobiusFermionR> npr_obj_s(*(FermActs[1]));
+  NPR<MobiusFermionR> npr_obj_s(*(FermActs1[1]),*(FermActs2[1]));
 
   std::string nprfilename_ms(config);
-  nprfilename_ms += "_npr_res_ms";
+  nprfilename_ms += "_npr_res_ms_0.5twist";
   npr_obj_s.calculate_NPR(momenta, nprfilename_ms);
   
-  NPR<MobiusFermionR> npr_obj_c(*(FermActs[2]));
+  NPR<MobiusFermionR> npr_obj_c(*(FermActs1[2]),*(FermActs2[2]));
 
   std::string nprfilename_mc(config);
-  nprfilename_mc += "_npr_res_mc";
+  nprfilename_mc += "_npr_res_mc_0.5twist";
   npr_obj_c.calculate_NPR(momenta, nprfilename_mc);
 
   Grid_finalize();
