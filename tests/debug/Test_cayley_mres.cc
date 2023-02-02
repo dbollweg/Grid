@@ -57,36 +57,8 @@ int main (int argc, char ** argv)
   int threads = GridThread::GetThreads();
   std::cout<<GridLogMessage << "Grid is setup to use "<<threads<<" threads"<<std::endl;
 
-  const int Ls=10;
-  std::vector < ComplexD  > omegas;
-  std::vector < ComplexD  > omegasrev(Ls);
-
-#if 1
-  omegas.push_back( std::complex<double>(1.45806438985048,-0) );
-  omegas.push_back( std::complex<double>(0.830951166685955,-0) );
-  omegas.push_back( std::complex<double>(0.341985020453729,-0) );
-  omegas.push_back( std::complex<double>(0.126074299502912,-0) );
-  //  omegas.push_back( std::complex<double>(0.0686324988446592,0.0550658530827402) );
-  //  omegas.push_back( std::complex<double>(0.0686324988446592,-0.0550658530827402) );
-  omegas.push_back( std::complex<double>(0.0686324988446592,0));
-  omegas.push_back( std::complex<double>(0.0686324988446592,0));
-  omegas.push_back( std::complex<double>(0.0990136651962626,-0) );
-  omegas.push_back( std::complex<double>(0.21137902619029,-0) );
-  omegas.push_back( std::complex<double>(0.542352409156791,-0) );
-  omegas.push_back( std::complex<double>(1.18231318389348,-0) );
-#else 
-  omegas.push_back( std::complex<double>(0.8,0.0));
-  omegas.push_back( std::complex<double>(1.1,0.0));
-  omegas.push_back( std::complex<double>(1.2,0.0));
-  omegas.push_back( std::complex<double>(1.3,0.0));
-  omegas.push_back( std::complex<double>(0.5,0.2));
-  omegas.push_back( std::complex<double>(0.5,-0.2));
-  omegas.push_back( std::complex<double>(0.8,0.0));
-  omegas.push_back( std::complex<double>(1.1,0.0));
-  omegas.push_back( std::complex<double>(1.2,0.0));
-  omegas.push_back( std::complex<double>(1.3,0.0));
-#endif
-
+  const int Ls=16;
+ 
   GridCartesian         * UGrid   = SpaceTimeGrid::makeFourDimGrid(GridDefaultLatt(), 
 								   GridDefaultSimd(Nd,vComplex::Nsimd()),
 								   GridDefaultMpi());
@@ -122,39 +94,22 @@ int main (int argc, char ** argv)
     // SU<Nc>::ColdConfiguration(Umu);
     SU<Nc>::HotConfiguration(RNG4,Umu);
   }
+  // std::vector<RealD> masses {0.00046, 0.01137, 0.0232};
+  std::vector<RealD> masses {0.00046};
+  for (auto mass: masses)
+  {
+    RealD M5=1.4;
+    RealD b=2;// Scale factor b+c=3, b-c=1
+    RealD c=1;
+    //  std::vector<ComplexD> gamma(Ls,ComplexD(1.0,0.0));
 
-  RealD mass=0.3;
-  RealD M5  =1.0;
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  std::cout<<GridLogMessage <<"DomainWallFermion test"<<std::endl;
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  DomainWallFermionR Ddwf(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5);
-  TestConserved<DomainWallFermionR>(Ddwf,Umu,FGrid,FrbGrid,UGrid,UrbGrid,mass,M5,&RNG4,&RNG5);
-
-  RealD b=1.5;// Scale factor b+c=2, b-c=1
-  RealD c=0.5;
-  //  std::vector<ComplexD> gamma(Ls,ComplexD(1.0,0.0));
-
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  std::cout<<GridLogMessage <<"MobiusFermion test"<<std::endl;
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  MobiusFermionR Dmob(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c);
-  TestConserved<MobiusFermionR>(Dmob,Umu,FGrid,FrbGrid,UGrid,UrbGrid,mass,M5,&RNG4,&RNG5);
-
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  std::cout<<GridLogMessage <<"ScaledShamirFermion test"<<std::endl;
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  ScaledShamirFermionR Dsham(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,2.0);
-  TestConserved<ScaledShamirFermionR>(Dsham,Umu,FGrid,FrbGrid,UGrid,UrbGrid,mass,M5,&RNG4,&RNG5);
-
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  std::cout<<GridLogMessage <<"ZMobiusFermion test"<<std::endl;
-  std::cout<<GridLogMessage <<"======================"<<std::endl;
-  for(int s=0;s<Ls;s++) omegasrev[s]=conjugate(omegas[Ls-1-s]);
-  //  for(int s=0;s<Ls;s++) omegasrev[s]=omegas[Ls-1-s];
-  ZMobiusFermionR ZDmob(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,omegas,b,c);
-  ZMobiusFermionR ZDmobrev(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,omegasrev,b,c);
-  TestConserved<ZMobiusFermionR>(ZDmob,Umu,FGrid,FrbGrid,UGrid,UrbGrid,mass,M5,&RNG4,&RNG5,&ZDmobrev);
+    std::cout<<GridLogMessage <<"======================"<<std::endl;
+    std::cout<<GridLogMessage <<"MobiusFermion test"<<std::endl;
+    std::cout<<GridLogMessage <<"======================"<<std::endl;
+    std::cout<<GridLogMessage <<"Mass = " << mass << std::endl;
+    MobiusFermionR Dmob(Umu,*FGrid,*FrbGrid,*UGrid,*UrbGrid,mass,M5,b,c);
+    TestConserved<MobiusFermionR>(Dmob,Umu,FGrid,FrbGrid,UGrid,UrbGrid,mass,M5,&RNG4,&RNG5);
+  }
 
   Grid_finalize();
 }
@@ -172,7 +127,7 @@ void  TestConserved(Action & Ddwf,
                     Action * Ddwfrev)
 {
   LatticePropagator phys_src(UGrid);
-  LatticePropagator seqsrc(FGrid);
+  // LatticePropagator seqsrc(FGrid);
   LatticePropagator prop5(FGrid); 
   LatticePropagator prop5rev(FGrid); 
   LatticePropagator prop4(UGrid); 
@@ -183,162 +138,98 @@ void  TestConserved(Action & Ddwf,
   LatticeComplex    VV (UGrid); 
   LatticeComplex    PJ5q(UGrid);
   LatticeComplex    PP (UGrid);
-  LatticePropagator seqprop(UGrid); 
+  // LatticePropagator seqprop(UGrid); 
 
   SpinColourMatrix kronecker; kronecker=1.0;
-  Coordinate coor({0,0,0,0});
+  std::vector<Coordinate> coors;
+  // coors.push_back(Coordinate({0,0,0,0}));
+  // coors.push_back(Coordinate({0,4,0,0}));
+  coors.push_back(Coordinate({0,0,4,0}));
+  coors.push_back(Coordinate({4,0,0,0})); 
   phys_src=Zero();
-  pokeSite(kronecker,phys_src,coor);
-  
-  ConjugateGradient<LatticeFermion> CG(1.0e-16,100000);
-  SchurRedBlackDiagTwoSolve<LatticeFermion> schur(CG);
-  ZeroGuesser<LatticeFermion> zpg;
-  for(int s=0;s<Nd;s++){
-    for(int c=0;c<Nc;c++){
-      LatticeFermion src4  (UGrid); 
-      PropToFerm<Action>(src4,phys_src,s,c);
+  for (auto coor: coors) {
+    pokeSite(kronecker,phys_src,coor);
+    std::cout << GridLogMessage << "SOURCE: " << coor[0] << ", "<< coor[1] << ", "<< coor[2] << ", "<< coor[3] << ", " <<std::endl <<std::endl;
+    ConjugateGradient<LatticeFermion> CG(1.0e-12,100000);
+    SchurRedBlackDiagTwoSolve<LatticeFermion> schur(CG);
+    ZeroGuesser<LatticeFermion> zpg;
+    for(int s=0;s<Nd;s++){
+      for(int c=0;c<Nc;c++){
+        LatticeFermion src4  (UGrid); 
+        PropToFerm<Action>(src4,phys_src,s,c);
 
-      LatticeFermion src5  (FGrid); 
-      Ddwf.ImportPhysicalFermionSource(src4,src5);
+        LatticeFermion src5  (FGrid); 
+        Ddwf.ImportPhysicalFermionSource(src4,src5);
 
-      LatticeFermion result5(FGrid); result5=Zero();
-      schur(Ddwf,src5,result5,zpg);
-      std::cout<<GridLogMessage<<"spin "<<s<<" color "<<c<<" norm2(sourc5d) "<<norm2(src5)
-               <<" norm2(result5d) "<<norm2(result5)<<std::endl;
-      FermToProp<Action>(prop5,result5,s,c);
+        LatticeFermion result5(FGrid); result5=Zero();
+        schur(Ddwf,src5,result5,zpg);
+        std::cout<<GridLogMessage<<"spin "<<s<<" color "<<c<<" norm2(sourc5d) "<<norm2(src5)
+                <<" norm2(result5d) "<<norm2(result5)<<std::endl;
+        FermToProp<Action>(prop5,result5,s,c);
 
-      LatticeFermion result4(UGrid);
-      Ddwf.ExportPhysicalFermionSolution(result5,result4);
-      FermToProp<Action>(prop4,result4,s,c);
+        LatticeFermion result4(UGrid);
+        Ddwf.ExportPhysicalFermionSolution(result5,result4);
+        FermToProp<Action>(prop4,result4,s,c);
 
-      if( Ddwfrev ) {
-        Ddwfrev->ImportPhysicalFermionSource(src4,src5);
-        result5 = Zero();
-        schur(*Ddwfrev,src5,result5,zpg);
+        if( Ddwfrev ) {
+          Ddwfrev->ImportPhysicalFermionSource(src4,src5);
+          result5 = Zero();
+          schur(*Ddwfrev,src5,result5,zpg);
+        }
+        FermToProp<Action>(prop5rev,result5,s,c);
       }
-      FermToProp<Action>(prop5rev,result5,s,c);
     }
-  }
 
-#if 1
-  auto curr = Current::Axial;
-  const int mu_J=Nd-1;
-#else
-  auto curr = Current::Vector;
-  const int mu_J=0;
-#endif
-  const int t_J=0;
+  #if 1
+    auto curr = Current::Axial;
+    const int mu_J=Nd-1;
+  #else
+    auto curr = Current::Vector;
+    const int mu_J=0;
+  #endif
+    const int t_J=0;
 
-  LatticeComplex    ph (UGrid); ph=1.0;
+    LatticeComplex    ph (UGrid); ph=1.0;
 
-  Ddwf.SeqConservedCurrent(prop5,
-			   seqsrc,
-			   phys_src,
-			   curr,
-			   mu_J,
-			   t_J,
-			   t_J,// whole lattice
-			   ph);
+    Gamma g5(Gamma::Algebra::Gamma5);
+    Gamma gT(Gamma::Algebra::GammaT);
 
-  for(int s=0;s<Nd;s++){
-    for(int c=0;c<Nc;c++){
+    std::vector<TComplex> sumPA;
+    std::vector<TComplex> sumSV;
+    std::vector<TComplex> sumVV;
+    std::vector<TComplex> sumPP;
+    std::vector<TComplex> sumPJ5q;
+    
+    Ddwf.ContractConservedCurrent(prop5rev,prop5,Axial_mu,phys_src,Current::Axial,Tdir);
+    Ddwf.ContractConservedCurrent(prop5rev,prop5,Vector_mu,phys_src,Current::Vector,Tdir);
+    Ddwf.ContractJ5q(prop5,PJ5q);
+    
+    PA       = trace(g5*Axial_mu);      // Pseudoscalar-Axial conserved current
+    SV       = trace(Vector_mu);        // Scalar-Vector conserved current
+    VV       = trace(gT*Vector_mu);     // (local) Vector-Vector conserved current
+    PP       = trace(adj(prop4)*prop4); // Pseudoscalar density
+    
+    // Spatial sum
+    sliceSum(PA,sumPA,Tdir);
+    sliceSum(SV,sumSV,Tdir);
+    sliceSum(VV,sumVV,Tdir);
+    sliceSum(PP,sumPP,Tdir);
+    sliceSum(PJ5q,sumPJ5q,Tdir);
 
-      LatticeFermion src5  (FGrid); 
-      PropToFerm<Action>(src5,seqsrc,s,c);
-
-      LatticeFermion result5(FGrid); result5=Zero();
-      schur(Ddwf,src5,result5,zpg);
-
-      LatticeFermion result4(UGrid);
-      Ddwf.ExportPhysicalFermionSolution(result5,result4);
-      FermToProp<Action>(seqprop,result4,s,c);
+    const int Nt{static_cast<int>(sumPA.size())};
+    std::cout<<GridLogMessage<<"Vector Ward identity by timeslice (~ 0)"<<std::endl;
+    for(int t=0;t<Nt;t++){
+      std::cout<<GridLogMessage <<" t "<<t<<" SV "<<real(TensorRemove(sumSV[t]))<<" VV "<<real(TensorRemove(sumVV[t]))<<std::endl;
     }
-  }
-  
-  Gamma g5(Gamma::Algebra::Gamma5);
-  Gamma gT(Gamma::Algebra::GammaT);
-
-  std::vector<TComplex> sumPA;
-  std::vector<TComplex> sumSV;
-  std::vector<TComplex> sumVV;
-  std::vector<TComplex> sumPP;
-  std::vector<TComplex> sumPJ5q;
-  
-  Ddwf.ContractConservedCurrent(prop5rev,prop5,Axial_mu,phys_src,Current::Axial,Tdir);
-  Ddwf.ContractConservedCurrent(prop5rev,prop5,Vector_mu,phys_src,Current::Vector,Tdir);
-  Ddwf.ContractJ5q(prop5,PJ5q);
-  
-  PA       = trace(g5*Axial_mu);      // Pseudoscalar-Axial conserved current
-  SV       = trace(Vector_mu);        // Scalar-Vector conserved current
-  VV       = trace(gT*Vector_mu);     // (local) Vector-Vector conserved current
-  PP       = trace(adj(prop4)*prop4); // Pseudoscalar density
-  
-  // Spatial sum
-  sliceSum(PA,sumPA,Tdir);
-  sliceSum(SV,sumSV,Tdir);
-  sliceSum(VV,sumVV,Tdir);
-  sliceSum(PP,sumPP,Tdir);
-  sliceSum(PJ5q,sumPJ5q,Tdir);
-
-  const int Nt{static_cast<int>(sumPA.size())};
-  std::cout<<GridLogMessage<<"Vector Ward identity by timeslice (~ 0)"<<std::endl;
-  for(int t=0;t<Nt;t++){
-    std::cout<<GridLogMessage <<" t "<<t<<" SV "<<real(TensorRemove(sumSV[t]))<<" VV "<<real(TensorRemove(sumVV[t]))<<std::endl;
-  }
-  std::cout<<GridLogMessage<<"Axial Ward identity by timeslice (defect ~ 0)"<<std::endl;
-  for(int t=0;t<Nt;t++){
-    const RealD DmuPAmu{real(TensorRemove(sumPA[t]-sumPA[(t-1+Nt)%Nt]))};
-    std::cout<<GridLogMessage<<" t "<<t<<" DmuPAmu "<<DmuPAmu
-             <<" PP "<<real(TensorRemove(sumPP[t]))<<" PJ5q "<<real(TensorRemove(sumPJ5q[t]))
-             <<" Ward Identity defect " <<(DmuPAmu - 2.*real(TensorRemove(Ddwf.mass*sumPP[t] + sumPJ5q[t])))<<std::endl;
-  }
-  
-  ///////////////////////////////
-  // 3pt vs 2pt check
-  ///////////////////////////////
-  { 
-    Gamma::Algebra        gA = (curr == Current::Axial) ? Gamma::Algebra::Gamma5 : Gamma::Algebra::Identity;
-    Gamma                 g(gA);
-
-    LatticePropagator cur(UGrid); 
-    LatticePropagator tmp(UGrid); 
-    LatticeComplex c(UGrid);
-    SpinColourMatrix qSite;
-    peekSite(qSite, seqprop, coor);
-
-    Complex               test_S, test_V, check_S, check_V;
-
-    std::vector<TComplex> check_buf;
-
-    test_S = trace(qSite*g);
-    test_V = trace(qSite*g*Gamma::gmu[mu_J]);
-
-    Ddwf.ContractConservedCurrent(prop5rev,prop5,cur,phys_src,curr,mu_J);
+    std::cout<<GridLogMessage<<"Axial Ward identity by timeslice (defect ~ 0)"<<std::endl;
+    for(int t=0;t<Nt;t++){
+      const RealD DmuPAmu{real(TensorRemove(sumPA[t]-sumPA[(t-1+Nt)%Nt]))};
+      std::cout<<GridLogMessage<<" t "<<t<<" DmuPAmu "<<DmuPAmu
+              <<" PP "<<real(TensorRemove(sumPP[t]))<<" PJ5q "<<real(TensorRemove(sumPJ5q[t]))
+              <<" Ward Identity defect " <<(DmuPAmu - 2.*real(TensorRemove(Ddwf.Mass()*sumPP[t] + sumPJ5q[t])))<<std::endl;
+    }
     
-    c = trace(cur*g);
-    sliceSum(c, check_buf, Tp);
-    check_S = TensorRemove(check_buf[t_J]);
-
-    auto gmu=Gamma::gmu[mu_J];
-    c = trace(cur*g*gmu);
-    sliceSum(c, check_buf, Tp);
-    check_V = TensorRemove(check_buf[t_J]);
-
-    
-    std::cout<<GridLogMessage << std::setprecision(14)<<"Test S  = " << abs(test_S)   << std::endl;
-    std::cout<<GridLogMessage << "Test V  = " << abs(test_V) << std::endl;
-    std::cout<<GridLogMessage << "Check S = " << abs(check_S) << std::endl;
-    std::cout<<GridLogMessage << "Check V = " << abs(check_V) << std::endl;
-
-    // Check difference = 0
-    check_S = check_S - test_S;
-    check_V = check_V - test_V;
-
-    std::cout<<GridLogMessage << "Consistency check for sequential conserved " <<std::endl;
-    std::cout<<GridLogMessage << "Diff S  = " << abs(check_S) << std::endl;
-    std::cout<<GridLogMessage << "Diff V  = " << abs(check_V) << std::endl;
   }
-
 }
 
       /*
