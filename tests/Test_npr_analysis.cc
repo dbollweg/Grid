@@ -27,8 +27,9 @@ int main (int argc, char ** argv) {
   }
   // std::vector<int> conf_nums = {100, 1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070, 1080, 1090};
   // std::vector<int> conf_nums = {765,785,805,825,845};
-  std::vector<int> conf_nums = {920, 940, 960, 980, 1000};
-  
+  // std::vector<int> conf_nums = {920, 940, 960, 980, 1000};
+ // std::vector<int> conf_nums = {1410, 1430, 1450, 1470, 1490};
+  std::vector<int> conf_nums = {1640, 1660, 1680, 1700, 1720};
 
     for (auto mom: momenta) {   
       std::vector<std::string> conf_names_ml;
@@ -37,31 +38,34 @@ int main (int argc, char ** argv) {
       for (auto cnfs: conf_nums) {  
         
     
-        std::string filename_ml = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ml_p1_";
-        std::string filename_ms = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ms_p1_";
-        std::string filename_mc = config_prefix + "." + std::to_string(cnfs) + "_npr_res_mc_p1_";
+        // std::string filename_ml = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ml_0.40084twist_p1_";
+        // std::string filename_ml = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ml_-0.21277twist_p1_";
+        std::string filename_ml = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ml_0.41696twist_p1_";
+        
+        std::string filename_ms = config_prefix + "." + std::to_string(cnfs) + "_npr_res_ms_0.41696twist_p1_";
+        // std::string filename_mc = config_prefix + "." + std::to_string(cnfs) + "_npr_res_mc_-0.5twist_p1_";
         for (auto m1: mom.first){
           filename_ml += std::to_string(m1);
 
           filename_ms += std::to_string(m1);
-          filename_mc += std::to_string(m1);
+          // filename_mc += std::to_string(m1);
         }
 
         filename_ml += "_p2_";
         filename_ms += "_p2_";
-        filename_mc += "_p2_";
+        // filename_mc += "_p2_";
         for (auto m2: mom.second){
           filename_ml += std::to_string(m2);
           filename_ms += std::to_string(m2);
-          filename_mc += std::to_string(m2);
+        //   filename_mc += std::to_string(m2);
         }
 
         filename_ml += ".dat";
         filename_ms += ".dat";
-        filename_mc += ".dat";
+        // filename_mc += ".dat";
         conf_names_ml.push_back(filename_ml); 
         conf_names_ms.push_back(filename_ms);
-        conf_names_mc.push_back(filename_mc);
+        // conf_names_mc.push_back(filename_mc);
       
       }
     std::cout << GridLogMessage << "Analyzing " << conf_names_ml.back() << std::endl;
@@ -72,10 +76,10 @@ int main (int argc, char ** argv) {
     NPR_analyze npr_reader_ms(conf_names_ms,GridDefaultLatt());
     // npr_reader.Test();
     npr_reader_ms.Average();
-    std::cout << GridLogMessage << "Analyzing " << conf_names_mc.back() << std::endl;
-    NPR_analyze npr_reader_mc(conf_names_mc,GridDefaultLatt());
-    // npr_reader.Test();
-    npr_reader_mc.Average();
+    // std::cout << GridLogMessage << "Analyzing " << conf_names_mc.back() << std::endl;
+    // NPR_analyze npr_reader_mc(conf_names_mc,GridDefaultLatt());
+    // // npr_reader.Test();
+    // npr_reader_mc.Average();
     }
 
     return 0;
