@@ -231,6 +231,53 @@ void  TestConserved(Action & Ddwf,
     
   }
 }
+//   ///////////////////////////////
+//   // 3pt vs 2pt check
+//   ///////////////////////////////
+//   { 
+//     Gamma::Algebra        gA = (curr == Current::Axial) ? Gamma::Algebra::Gamma5 : Gamma::Algebra::Identity;
+//     Gamma                 g(gA);
+
+//     LatticePropagator cur(UGrid); 
+//     LatticePropagator tmp(UGrid); 
+//     LatticeComplex c(UGrid);
+//     SpinColourMatrix qSite;
+//     peekSite(qSite, seqprop, coor);
+
+//     Complex               test_S, test_V, check_S, check_V;
+
+//     std::vector<TComplex> check_buf;
+
+//     test_S = trace(qSite*g);
+//     test_V = trace(qSite*g*Gamma::gmu[mu_J]);
+
+//     Ddwf.ContractConservedCurrent(prop5rev,prop5,cur,phys_src,curr,mu_J);
+    
+//     c = trace(cur*g);
+//     sliceSum(c, check_buf, Tp);
+//     check_S = TensorRemove(check_buf[t_J]);
+
+//     auto gmu=Gamma::gmu[mu_J];
+//     c = trace(cur*g*gmu);
+//     sliceSum(c, check_buf, Tp);
+//     check_V = TensorRemove(check_buf[t_J]);
+
+    
+//     std::cout<<GridLogMessage << std::setprecision(14)<<"Test S  = " << abs(test_S)   << std::endl;
+//     std::cout<<GridLogMessage << "Test V  = " << abs(test_V) << std::endl;
+//     std::cout<<GridLogMessage << "Check S = " << abs(check_S) << std::endl;
+//     std::cout<<GridLogMessage << "Check V = " << abs(check_V) << std::endl;
+
+//     // Check difference = 0
+//     check_S = check_S - test_S;
+//     check_V = check_V - test_V;
+
+//     std::cout<<GridLogMessage << "Consistency check for sequential conserved " <<std::endl;
+//     std::cout<<GridLogMessage << "Diff S  = " << abs(check_S) << std::endl;
+//     std::cout<<GridLogMessage << "Diff V  = " << abs(check_V) << std::endl;
+//   }
+
+// }
 
       /*
 #if 0
