@@ -646,7 +646,7 @@ void CayleyFermion5D<Impl>::ContractConservedCurrent( PropagatorField &q_in_1,
   assert(mass_plus == mass_minus);
   RealD mass = mass_plus;
   
-#if (!defined(GRID_HIP))
+
   Gamma::Algebra Gmu [] = {
     Gamma::Algebra::GammaX,
     Gamma::Algebra::GammaY,
@@ -765,7 +765,7 @@ void CayleyFermion5D<Impl>::ContractConservedCurrent( PropagatorField &q_in_1,
     else          q_out +=     C;
     
   }
-#endif
+
 }
 
 template <class Impl>

@@ -94,8 +94,8 @@ int main (int argc, char ** argv)
     // SU<Nc>::ColdConfiguration(Umu);
     SU<Nc>::HotConfiguration(RNG4,Umu);
   }
-  // std::vector<RealD> masses {0.00046, 0.01137, 0.0232};
-  std::vector<RealD> masses {0.00046};
+  std::vector<RealD> masses {0.0232};
+  //std::vector<RealD> masses {0.00046};
   for (auto mass: masses)
   {
     RealD M5=1.4;
@@ -115,6 +115,25 @@ int main (int argc, char ** argv)
 }
 
 
+void Z2WallSource(GridParallelRNG &RNG,int tslice,LatticePropagator &source)
+{
+  GridBase *grid = source.Grid();
+  LatticeComplex noise(grid);
+  LatticeComplex zz(grid); zz=Zero();
+  LatticeInteger t(grid);
+
+  RealD nrm=1.0/sqrt(2);
+  bernoulli(RNG, noise); // 0,1 50:50
+
+  noise = (2.*noise - Complex(1,1))*nrm;
+
+  LatticeCoordinate(t,Tdir);
+  noise = where(t==Integer(tslice), noise, zz);
+
+  source = 1.0;
+  source = source*noise;
+  std::cout << " Z2 wall " << tslice << std::endl << norm2(source) << std::endl;
+}
 
 template<class Action> 
 void  TestConserved(Action & Ddwf,
@@ -140,16 +159,10 @@ void  TestConserved(Action & Ddwf,
   LatticeComplex    PP (UGrid);
   // LatticePropagator seqprop(UGrid); 
 
-  SpinColourMatrix kronecker; kronecker=1.0;
-  std::vector<Coordinate> coors;
-  // coors.push_back(Coordinate({0,0,0,0}));
-  // coors.push_back(Coordinate({0,4,0,0}));
-  coors.push_back(Coordinate({0,0,4,0}));
-  coors.push_back(Coordinate({4,0,0,0})); 
-  phys_src=Zero();
-  for (auto coor: coors) {
-    pokeSite(kronecker,phys_src,coor);
-    std::cout << GridLogMessage << "SOURCE: " << coor[0] << ", "<< coor[1] << ", "<< coor[2] << ", "<< coor[3] << ", " <<std::endl <<std::endl;
+  std::vector<int> tslices {0,4,8,12};
+  for (auto tslice:tslices) {
+    Z2WallSource(*RNG4,tslice,phys_src);
+
     ConjugateGradient<LatticeFermion> CG(1.0e-12,100000);
     SchurRedBlackDiagTwoSolve<LatticeFermion> schur(CG);
     ZeroGuesser<LatticeFermion> zpg;
