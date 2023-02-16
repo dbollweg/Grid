@@ -8,5 +8,5 @@
 --disable-gparity \
 CXX=hipcc MPICXX=mpicxx \
 CXXFLAGS="-fPIC -I${ROCM_PATH}/include/ -std=c++14 -I${MPICH_DIR}/include -I${FFTW_INC}" \
- LDFLAGS="-L${ROCM_PATH}/lib/ -lamdhip64 -L${MPICH_DIR}/lib -lmpi -L${CRAY_MPICH_ROOTDIR}/gtl/lib -lmpi_gtl_hsa -L${FFTW_DIR} -lfftw3 -lfftw3f"
-HIPFLAGS = --amdgpu-target=gfx90a
+ LDFLAGS="-L${ROCM_PATH}/lib/ -lamdhip64 -L${MPICH_DIR}/lib -lmpi -L${CRAY_MPICH_ROOTDIR}/gtl/lib -lmpi_gtl_hsa -L${FFTW_DIR} -lfftw3 -lfftw3f" \
+HIPFLAGS="--amdgpu-target=gfx90a"
