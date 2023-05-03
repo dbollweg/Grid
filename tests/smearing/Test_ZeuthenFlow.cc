@@ -1,46 +1,18 @@
-/*************************************************************************************
-
-Grid physics library, www.github.com/paboyle/Grid
-
-Source file: ./tests/hmc/Test_WilsonFlow.cc
-
-Copyright (C) 2017
-
-Author: Guido Cossu <guido.cossu@ed.ac.uk>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
-See the full license in the file "LICENSE" in the top level distribution
-directory
-*************************************************************************************/
-/*  END LEGAL */
 #include <Grid/Grid.h>
 
 namespace Grid{
-  struct WFParameters: Serializable {
-    GRID_SERIALIZABLE_CLASS_MEMBERS(WFParameters,
+  struct ZFParameters: Serializable {
+    GRID_SERIALIZABLE_CLASS_MEMBERS(ZFParameters,
             int, steps,
             double, step_size,
             int, meas_interval,
             double, maxTau); // for the adaptive algorithm
 
-    WFParameters() {}       
+    ZFParameters() {}       
 
     template <class ReaderClass >
-    WFParameters(Reader<ReaderClass>& Reader){
-      read(Reader, "WilsonFlow", *this);
+    ZFParameters(Reader<ReaderClass>& Reader){
+      read(Reader, "ZeuthenFlow", *this);
     }
 
   };
@@ -67,18 +39,7 @@ int main(int argc, char **argv) {
 
   Grid_init(&argc, &argv);
   GridLogLayout();
-  // WFParameters wfp;
-  // wfp.steps = 200;
-  // wfp.step_size = 0.01;
-  // wfp.meas_interval = 50;
-  // wfp.maxTau = 2.0;
 
-  // Grid::XmlWriter Writer("output.xml");
-  // try{ write(Writer,"WFParameters",wfp); }
-  // catch(...) {
-  //   std::cout << GridLogError << "Error writing xml file" << std::endl;
-  //   exit(EXIT_FAILURE);
-  // }
   auto latt_size   = GridDefaultLatt();
   auto simd_layout = GridDefaultSimd(Nd, vComplex::Nsimd());
   auto mpi_layout  = GridDefaultMpi();
@@ -94,8 +55,8 @@ int main(int argc, char **argv) {
   //SU<Nc>::HotConfiguration(pRNG, Umu);
   
   typedef Grid::XmlReader       Serialiser;
-  Serialiser Reader("input.xml");
-  WFParameters WFPar(Reader);
+  Serialiser Reader("input_zf.xml");
+  ZFParameters ZFPar(Reader);
   ConfParameters CPar(Reader);
   CheckpointerParameters CPPar(CPar.conf_prefix, CPar.rng_prefix);
   NerscHmcCheckpointer<PeriodicGimplR> CPBin(CPPar);
@@ -108,16 +69,15 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "Initial plaquette: "
     << WilsonLoops<PeriodicGimplR>::avgPlaquette(Umu) << std::endl;
 
-  int t=WFPar.maxTau;
-  WilsonFlowAdaptive<PeriodicGimplR> WF(WFPar.step_size, WFPar.maxTau,
-					1.0e-4,
-					WFPar.meas_interval);
+  int t=ZFPar.maxTau;
+  ZeuthenFlow<PeriodicGimplR> ZF(ZFPar.step_size, 20,
+					ZFPar.meas_interval);
 
-  WF.smear(Uflow, Umu);
+  ZF.smear(Uflow, Umu);
 
   RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow);
   RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow);
-  RealD WFlow_T0   = WF.energyDensityPlaquette(t,Uflow);
+  RealD WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow);
   std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
   std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
@@ -139,29 +99,3 @@ int main(int argc, char **argv) {
   }
   Grid_finalize();
 }  // main
-
-
-/*
-Input file example
-
-
-JSON
-
-{
-    "WilsonFlow":{
-	"steps": 200,
-	"step_size": 0.01,
-	"meas_interval": 50,
-  "maxTau": 2.0
-    },
-    "Configurations":{
-	"conf_prefix": "ckpoint_lat",
-	"rng_prefix": "ckpoint_rng",
-	"StartConfiguration": 3000,
-	"EndConfiguration": 3000,
-	"Skip": 5
-    }
-}
-
-
-*/
