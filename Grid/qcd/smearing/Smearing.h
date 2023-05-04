@@ -6,4 +6,4 @@
 #include <Grid/qcd/smearing/GaugeConfiguration.h>
 #include <Grid/qcd/smearing/WilsonFlow.h>
 #include <Grid/qcd/smearing/ZeuthenFlow.h>
-
+#include <Grid/qcd/smearing/FermionFlow.h>
