@@ -2,8 +2,8 @@
 
 NAMESPACE_BEGIN(Grid);
 
-template<class Gimpl, class SpinorField>
-class FermionFlow: public ZeuthenFlowBase<Gimpl> {
+template<class Gimpl, class GaugeAction, class SpinorField>
+class FermionFlow: public GradientFlowBase<Gimpl,GaugeAction> {
 private:
     int Nstep;
     RealD epsilon;
@@ -14,14 +14,14 @@ private:
 public:
     INHERIT_GIMPL_TYPES(Gimpl)
 
-    FermionFlow(const RealD Epsilon, const int Nstep, unsigned int meas_interval = 1): ZeuthenFlowBase<Gimpl>(meas_interval), Nstep(Nstep), epsilon(Epsilon) {}
+    FermionFlow(const RealD Epsilon, const int Nstep, unsigned int meas_interval = 1): GradientFlowBase<Gimpl,GaugeAction>(meas_interval), Nstep(Nstep), epsilon(Epsilon) {}
 
     void smear(GaugeField& out, SpinorField& chi_out, const GaugeField& in, const SpinorField& chi_in) const;
     void smear(GaugeField& out, const GaugeField& in) const override {};
 };
 
-template<class Gimpl, class SpinorField>
-void FermionFlow<Gimpl, SpinorField>::fermion_laplacian(typename Gimpl::GaugeField &U, SpinorField &chi_in, SpinorField &chi_out) const {
+template<class Gimpl, class GaugeAction, class SpinorField>
+void FermionFlow<Gimpl, GaugeAction, SpinorField>::fermion_laplacian(typename Gimpl::GaugeField &U, SpinorField &chi_in, SpinorField &chi_out) const {
     chi_out = 0;
     for (int mu = 0; mu < Nd; mu++) {
         GaugeLinkField Ulink(U.Grid());
@@ -31,8 +31,8 @@ void FermionFlow<Gimpl, SpinorField>::fermion_laplacian(typename Gimpl::GaugeFie
     return;
 }
 
-template<class Gimpl, class SpinorField>
-void FermionFlow<Gimpl,SpinorField>::evolve_step(typename Gimpl::GaugeField &U, SpinorField &chi, RealD &tau) const {
+template<class Gimpl, class GaugeAction, class SpinorField>
+void FermionFlow<Gimpl, GaugeAction, SpinorField>::evolve_step(typename Gimpl::GaugeField &U, SpinorField &chi, RealD &tau) const {
     GaugeField Z(U.Grid());
     GaugeField tmp(U.Grid());
     SpinorField phi0(U.Grid());
@@ -42,7 +42,6 @@ void FermionFlow<Gimpl,SpinorField>::evolve_step(typename Gimpl::GaugeField &U, 
     
 
     this->SG.deriv(U,Z);
-    this->zeuthen_force(U,Z);
     fermion_laplacian(U,chi,phi0);
     Z*=0.25;
     Gimpl::update_field(Z, U, -2.0*epsilon);
@@ -51,7 +50,7 @@ void FermionFlow<Gimpl,SpinorField>::evolve_step(typename Gimpl::GaugeField &U, 
 
     Z *= -17.0/8.0;
     this->SG.deriv(U, tmp);
-    this->zeuthen_force(U, tmp);
+    
     
 
     fermion_laplacian(U,phi1,phi2); //phi2 is laplace(W1)phi1   
@@ -66,7 +65,7 @@ void FermionFlow<Gimpl,SpinorField>::evolve_step(typename Gimpl::GaugeField &U, 
 
     Z *= -4.0/3.0;
     this->SG.deriv(U, tmp);
-    this->zeuthen_force(U, tmp);
+    
     Z += tmp;
 
     Z *= 3.0/4.0;
@@ -86,14 +85,14 @@ void FermionFlow<Gimpl,SpinorField>::evolve_step(typename Gimpl::GaugeField &U, 
 
 }
 
-template<class Gimpl, class SpinorField>
-void FermionFlow<Gimpl,SpinorField>::smear(GaugeField& out, SpinorField& chi_out, const GaugeField& in, const SpinorField& chi_in) const {
+template<class Gimpl, class GaugeAction, class SpinorField>
+void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear(GaugeField& out, SpinorField& chi_out, const GaugeField& in, const SpinorField& chi_in) const {
     std::cout << GridLogMessage
-        << "[FermionFlow + ZeuthenFlow] Nstep   : " << Nstep<< std::endl;
+        << "[FermionFlow] Nstep   : " << Nstep<< std::endl;
     std::cout << GridLogMessage
-        << "[FermionFlow + ZeuthenFLow] epsilon   : " << epsilon << std::endl;
+        << "[FermionFlow] epsilon   : " << epsilon << std::endl;
     std::cout << GridLogMessage
-        << "[FermionFlow + ZeuthenFlow] full trajectory : " << Nstep * epsilon << std::endl;
+        << "[FermionFlow] full trajectory : " << Nstep * epsilon << std::endl;
 
     SpinorField tmp(chi_out.Grid());
     out = in;
@@ -104,7 +103,7 @@ void FermionFlow<Gimpl,SpinorField>::smear(GaugeField& out, SpinorField& chi_out
     auto start = std::chrono::high_resolution_clock::now();
     evolve_step(out, chi_out, taus);
     tmp=chi_out;
-    std::cout << GridLogMessage << "[FermionFlow + ZeuthenFLow]  chi norm after step = " << norm2(PeekIndex<SpinorIndex>(tmp,0)) << std::endl;
+    std::cout << GridLogMessage << "[FermionFlow]  chi norm after step = " << norm2(PeekIndex<SpinorIndex>(tmp,0)) << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 #ifdef WF_TIMING

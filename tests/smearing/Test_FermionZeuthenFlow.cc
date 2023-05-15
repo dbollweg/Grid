@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "Finishd dfft solve!" << std::endl;
   int t=ZFPar.maxTau;
   std::cout << GridLogMessage << "Starting FermionFlow with stepsize " << ZFPar.step_size << std::endl;
-  FermionFlow<PeriodicGimplR,LatticeFermionD> ZF(ZFPar.step_size, 200,
+  FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(ZFPar.step_size, 200,
 					ZFPar.meas_interval);
 
   ZF.smear(Uflow, phi, Umu, src);
