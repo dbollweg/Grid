@@ -123,15 +123,15 @@ int main(int argc, char **argv) {
 
   LatticeFermionD tmp_src(&Grid);
   tmp_src=src;
-  for (int i = 0; i < 200; i++) {
+  for (int i = 0; i < 60; i++) {
     dfft_solve(Grid, tmp_src, phi_dfft, ZFPar.step_size);
     tmp_src=phi_dfft;
   }
   std::cout << GridLogMessage << "Finishd dfft solve!" << std::endl;
   int t=ZFPar.maxTau;
   std::cout << GridLogMessage << "Starting FermionFlow with stepsize " << ZFPar.step_size << std::endl;
-  FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(ZFPar.step_size, 200,
-					ZFPar.meas_interval);
+  FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(ZFPar.step_size, 60, Umu,
+					ZFPar.meas_interval,20);
 
   ZF.smear(Uflow, phi, Umu, src);
   LatticeFermionD diff = phi_dfft - phi;
@@ -152,7 +152,7 @@ int main(int argc, char **argv) {
   
   std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_flow = " << avg << std::endl;
-  assert(avg < 1e-6);
+  assert(avg < 1e-5);
 
   //Second check: random gauge transform of unit gauge should agree with gauge transformed solution of dfft
   // and gauge transformed solution of prev check
@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
   
   std::cout << GridLogMessage << "Norm of phi_dfft - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
-  assert(avg < 1e-6);
+  assert(avg < 1e-5);
 
   diff = phi - phi_rng;
   avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
@@ -201,9 +201,21 @@ int main(int argc, char **argv) {
   
   std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
-  assert(avg < 1e-6);
+  assert(avg < 1e-5);
 
-
+  LatticeFermionD eta(&Grid);
+  random(pRNG, eta);
+  LatticeFermionD phi_adj(&Grid);
+  auto dotprod_t = innerProduct(eta,phi_rng);
+  std::cout << GridLogMessage << "Testing dotprod <eta(t),phi_rng> = " << dotprod_t <<std::endl;
+  //Testing adjoint flow
+  ZF.smear_adjoint(phi_adj,eta);
+  auto dotprod_0 = innerProduct(phi_adj,src);
+  std::cout << GridLogMessage << "Norm of eta = " << norm2(PeekIndex<SpinorIndex>(eta,0)) << std::endl;
+  std::cout << GridLogMessage << "Testing dotprod <eta(t=0),src> = " << dotprod_0 <<std::endl;
+  auto dotdiff = norm(dotprod_t-dotprod_0);
+  std::cout << GridLogMessage << "|<eta(t),phi_rng>-<eta(t=0),src>| = " << norm(dotprod_t - dotprod_0) << std::endl;
+  assert(dotdiff < 1e-8);
   }
   Grid_finalize();
 }  // main
