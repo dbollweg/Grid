@@ -9,15 +9,20 @@ private:
     int Nckpoints;
     RealD epsilon;
     mutable std::vector<typename Gimpl::GaugeField> ckpoint_fields;
+    mutable std::vector<typename Gimpl::GaugeField> cached_fields;
+    //add 2nd level cache, saving only a single block
     void evolve_step(typename Gimpl::GaugeField &U, RealD &tau) const;
     void evolve_step(typename Gimpl::GaugeField &U, SpinorField &chi, RealD &tau) const;
     void fermion_laplacian(typename Gimpl::GaugeField &U, SpinorField &chi_in, SpinorField &chi_out) const;
     void evolve_step_adjoint(typename Gimpl::GaugeField &U, SpinorField &chi, RealD &tau) const;
 
+
 public:
     INHERIT_GIMPL_TYPES(Gimpl)
 
-    FermionFlow(const RealD Epsilon, const int Nstep, const GaugeField &U, unsigned int meas_interval = 1, int Nckpoints = 10): GradientFlowBase<Gimpl,GaugeAction>(meas_interval), Nstep(Nstep), Nckpoints(Nckpoints), epsilon(Epsilon), ckpoint_fields(Nckpoints,U.Grid()) {}
+    FermionFlow(const RealD Epsilon, const int Nstep, const GaugeField &U, 
+    unsigned int meas_interval = 1, int Nckpoints = 10): GradientFlowBase<Gimpl,GaugeAction>(meas_interval), Nstep(Nstep),
+    Nckpoints(Nckpoints), epsilon(Epsilon), ckpoint_fields(Nckpoints,U.Grid()), cached_fields(Nstep/Nckpoints,U.Grid()) {}
 
     void smear(GaugeField& out, SpinorField& chi_out, const GaugeField& in, const SpinorField& chi_in) const;
     void smear(GaugeField& out, const GaugeField& in) const override {};
@@ -73,7 +78,7 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::evolve_step(typename Gimpl::G
     Gimpl::update_field(Z, U, -2.0*epsilon);
     phi1 = chi + 0.25*epsilon*phi0; //phi1 = phi0 + 1/4eps*laplace(W0)phi0
     //U is now W1
-
+    
     Z *= -17.0/8.0;
     this->SG.deriv(U, tmp);
     
@@ -220,14 +225,28 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear_adjoint(SpinorField& ch
         std::cout << GridLogMessage << "[Adjoint FermionFlow] reverse step " << step << std::endl;
         int reconstruction_index = step%Nckpoints;
         int ckp_index = step/(Nstep/Nckpoints);
-       
-        GaugeField tmp_U(ckpoint_fields[ckp_index].Grid());
-        tmp_U = ckpoint_fields[ckp_index];
 
-        for (int i = 0; i < reconstruction_index; i++) {
-            RealD inner_tau = 0;
-            evolve_step(tmp_U,inner_tau);
+
+        GaugeField tmp_U(ckpoint_fields[ckp_index].Grid());
+        //tmp_U = ckpoint_fields[ckp_index];
+
+        if (reconstruction_index == Nstep/Nckpoints - 1) {
+            //reconstruct and cache
+            for (int i = 0; i < reconstruction_index; i++) {
+                RealD inner_tau = 0;
+                evolve_step(tmp_U,inner_tau);
+                cached_fields[i]=tmp_U;
+            }
+            
         }
+        else {
+            tmp_U = cached_fields[reconstruction_index];
+        }
+
+        // for (int i = 0; i < reconstruction_index; i++) {
+        //     RealD inner_tau = 0;
+        //     evolve_step(tmp_U,inner_tau);
+        // }
         evolve_step_adjoint(tmp_U, chi_out, taus); //goes from taus to taus-epsilon
         std::cout << GridLogMessage << "[Adjoint FermionFlow]  chi norm after (reverse) step = " << norm2(PeekIndex<SpinorIndex>(chi_out,0)) << std::endl;
     
