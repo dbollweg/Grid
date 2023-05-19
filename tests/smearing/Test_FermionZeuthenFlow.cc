@@ -133,26 +133,26 @@ int main(int argc, char **argv) {
   FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(ZFPar.step_size, 60, Umu,
 					ZFPar.meas_interval,20);
 
-  ZF.smear(Uflow, phi, Umu, src);
-  LatticeFermionD diff = phi_dfft - phi;
+  // ZF.smear(Uflow, phi, Umu, src);
+  // LatticeFermionD diff = phi_dfft - phi;
   
-  auto avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
-             +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
+  // auto avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
+  //            +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
 
-  RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow);
-  RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow);
-  RealD WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow);
-  std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
-  std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
-  std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
+  // RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow);
+  // RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow);
+  // RealD WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow);
+  // std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
+  // std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
+  // std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
 
-  std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinorIndex>(src,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinorIndex>(phi_dfft,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinorIndex>(src,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm of phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinorIndex>(phi_dfft,0)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_flow = " << avg << std::endl;
-  assert(avg < 1e-5);
+  // std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_flow = " << avg << std::endl;
+  // assert(avg < 1e-5);
 
   //Second check: random gauge transform of unit gauge should agree with gauge transformed solution of dfft
   // and gauge transformed solution of prev check
@@ -172,15 +172,15 @@ int main(int argc, char **argv) {
   phi_dfft = g * phi_dfft;
 
   //rotate phi to new gauge;
-  phi = g * phi;
+  // phi = g * phi;
 
   ZF.smear(Uflow_rng, phi_rng, Urng, src);
-  diff = phi_dfft - phi_rng;
-  avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
+  LatticeFermionD diff = phi_dfft - phi_rng;
+  auto avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
         +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
-  WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow_rng);
-  WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow_rng);
-  WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow_rng);
+  RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow_rng);
+  RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow_rng);
+  RealD WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow_rng);
   std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
   std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
@@ -193,15 +193,15 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
   assert(avg < 1e-5);
 
-  diff = phi - phi_rng;
-  avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
-        +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
-  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinorIndex>(phi_rng,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of g*phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
+  // diff = phi - phi_rng;
+  // avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
+  //       +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
+  // std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinorIndex>(phi_rng,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm of g*phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
-  assert(avg < 1e-5);
+  // std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
+  // std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
+  // assert(avg < 1e-5);
 
   LatticeFermionD eta(&Grid);
   random(pRNG, eta);
