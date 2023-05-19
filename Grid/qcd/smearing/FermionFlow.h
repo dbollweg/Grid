@@ -38,7 +38,6 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::fermion_laplacian(typename Gi
         Ulink = PeekIndex<LorentzIndex>(U,mu);
         chi_out += Ulink*Cshift(chi_in,mu,1)-2.0*chi_in+adj(Gimpl::CshiftLink(Ulink,mu,-1))*Cshift(chi_in,mu,-1);
     }
-    return;
 }
 
 template <class Gimpl, class GaugeAction, class SpinorField>
@@ -69,9 +68,8 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::evolve_step(typename Gimpl::G
     SpinorField phi0(U.Grid());
     SpinorField phi1(U.Grid());
     SpinorField phi2(U.Grid());
-    //W0
     
-
+    //W0
     this->SG.deriv(U,Z);
     fermion_laplacian(U,chi,phi0);
     Z*=0.25;
@@ -83,11 +81,9 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::evolve_step(typename Gimpl::G
     this->SG.deriv(U, tmp);
     
     
-
     fermion_laplacian(U,phi1,phi2); //phi2 is laplace(W1)phi1   
     //phi2:
     phi2 = chi + 8.0/9.0*epsilon*phi2-2.0/9.0*epsilon*phi0; //phi2 = phi0 + 8/9*eps*laplace(W1)phi1-2/9*epsilon*laplace(W0)phi0
-    // std::cout << GridLogMessage << "Testing phi0 " << norm2(PeekIndex<SpinorIndex>(phi0,0)) << std::endl;
     Z += tmp;
 
     Z *= 8.0/9.0;
@@ -110,9 +106,6 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::evolve_step(typename Gimpl::G
 
 
     tau+=epsilon;
-
-    return;
-
 
 }
 
@@ -218,7 +211,7 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear_adjoint(SpinorField& ch
 //ck idx 0            1           2          17               18              19
 //      [0] 1 2 3 4 [5] 6 7 8 9 [10] 11 ... [90] 91 92 93 94 [95] 96 97 98 99 [100]    <-- U(t+i*epsilon)
 //                                           |------------>|
- 
+//rec idx                                    [0][1][2][3][4] 
 
     for (int step = Nstep-1; step >= 0; step--) {
         
@@ -239,17 +232,13 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear_adjoint(SpinorField& ch
             evolve_step_adjoint(tmp_U, chi_out, taus);
         }
         else {
+            //reuse cached fields
             std::cout << GridLogMessage << "[Adjoint FermionFlow] using cached fields" << std::endl;
             GaugeField tmp_U(cached_fields[reconstruction_index].Grid());
             tmp_U = cached_fields[reconstruction_index];
             evolve_step_adjoint(tmp_U, chi_out, taus);
         }
 
-        // for (int i = 0; i < reconstruction_index; i++) {
-        //     RealD inner_tau = 0;
-        //     evolve_step(tmp_U,inner_tau);
-        // }
-         //goes from taus to taus-epsilon
         std::cout << GridLogMessage << "[Adjoint FermionFlow]  chi norm after (reverse) step = " << norm2(PeekIndex<SpinorIndex>(chi_out,0)) << std::endl;
     
     }
