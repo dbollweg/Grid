@@ -1,32 +1,18 @@
 #include <Grid/Grid.h>
 
 namespace Grid{
-  struct ZFParameters: Serializable {
-    GRID_SERIALIZABLE_CLASS_MEMBERS(ZFParameters,
+  struct FlowParameters: Serializable {
+    GRID_SERIALIZABLE_CLASS_MEMBERS(FlowParameters,
             int, steps,
             double, step_size,
+            int, checkpoints,
             int, meas_interval,
             double, maxTau); // for the adaptive algorithm
 
     
     template <class ReaderClass >
-    ZFParameters(Reader<ReaderClass>& Reader){
-      read(Reader, "ZeuthenFlow", *this);
-    }
-
-  };
-
-  struct ConfParameters: Serializable {
-    GRID_SERIALIZABLE_CLASS_MEMBERS(ConfParameters,
-           std::string, conf_prefix,
-            std::string, rng_prefix,
-				    int, StartConfiguration,
-				    int, EndConfiguration,
-            int, Skip);
-  
-    template <class ReaderClass >
-    ConfParameters(Reader<ReaderClass>& Reader){
-      read(Reader, "Configurations", *this);
+    FlowParameters(Reader<ReaderClass>& Reader){
+      read(Reader, "FlowParameters", *this);
     }
 
   };
@@ -68,24 +54,19 @@ int main(int argc, char **argv) {
   GridCartesian               Grid(latt_size, simd_layout, mpi_layout);
   GridRedBlackCartesian     RBGrid(&Grid);
 
-//  std::vector<int> seeds({1, 2, 3, 4, 5});
+  std::vector<int> seeds({1, 2, 3, 4, 5});
   GridSerialRNG sRNG;
   GridParallelRNG pRNG(&Grid);
-  //pRNG.SeedFixedIntegers(seeds);
+  pRNG.SeedFixedIntegers(seeds);
 
   LatticeGaugeField Umu(&Grid), Uflow(&Grid);
   //SU<Nc>::HotConfiguration(pRNG, Umu);
 
   typedef Grid::XmlReader       Serialiser;
   Serialiser Reader("input.xml");
-  ZFParameters ZFPar(Reader);
-  ConfParameters CPar(Reader);
-  CheckpointerParameters CPPar(CPar.conf_prefix, CPar.rng_prefix);
-  NerscHmcCheckpointer<PeriodicGimplR> CPBin(CPPar);
+  FlowParameters Par(Reader);
 
-  for (int conf = CPar.StartConfiguration; conf <= CPar.EndConfiguration; conf+= CPar.Skip){
 
-  CPBin.CheckpointRestore(conf, Umu, sRNG, pRNG);
   SU<Nc>::ColdConfiguration(pRNG,Umu);
 
   std::cout << std::setprecision(15);
@@ -101,15 +82,15 @@ int main(int argc, char **argv) {
 
   LatticeFermionD tmp_src(&Grid);
   tmp_src=src;
-  for (int i = 0; i < 60; i++) {
-    dfft_solve(Grid, tmp_src, phi_dfft, ZFPar.step_size);
+  for (int i = 0; i < Par.steps; i++) {
+    dfft_solve(Grid, tmp_src, phi_dfft, Par.step_size);
     tmp_src=phi_dfft;
   }
   std::cout << GridLogMessage << "Finishd dfft solve!" << std::endl;
-  int t=ZFPar.maxTau;
-  std::cout << GridLogMessage << "Starting FermionFlow with stepsize " << ZFPar.step_size << std::endl;
-  FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(ZFPar.step_size, 60, Umu,
-					ZFPar.meas_interval,10);
+  int t=Par.maxTau;
+  std::cout << GridLogMessage << "Starting FermionFlow with stepsize " << Par.step_size << std::endl;
+  FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(Par.step_size, Par.steps, Umu,
+					Par.meas_interval,Par.checkpoints);
 
   ZF.smear(Uflow, phi, Umu, src);
   LatticeFermionD diff = phi_dfft - phi;
@@ -120,9 +101,9 @@ int main(int argc, char **argv) {
   RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow);
   RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow);
   RealD WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow);
-  std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
-  std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
-  std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
+  std::cout << GridLogMessage << "Plaquette          " << WFlow_plaq << std::endl;
+  std::cout << GridLogMessage << "T0                 " << WFlow_T0 << std::endl;
+  std::cout << GridLogMessage << "TopologicalCharge  " << WFlow_TC   << std::endl;
 
   std::cout << GridLogMessage << "Norm of src <0>= " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
   std::cout << GridLogMessage << "Norm of phi <0>= " << norm2(PeekIndex<SpinIndex>(phi,0)) << std::endl;
@@ -172,9 +153,9 @@ int main(int argc, char **argv) {
   WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow_rng);
   WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow_rng);
   WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow_rng);
-  std::cout << GridLogMessage << "Plaquette          "<< conf << "   " << WFlow_plaq << std::endl;
-  std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
-  std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
+  std::cout << GridLogMessage << "Plaquette          " << WFlow_plaq << std::endl;
+  std::cout << GridLogMessage << "T0                 " << WFlow_T0 << std::endl;
+  std::cout << GridLogMessage << "TopologicalCharge  " << WFlow_TC   << std::endl;
 
   std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
   std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinIndex>(phi_rng,0)) << std::endl;
@@ -207,6 +188,6 @@ int main(int argc, char **argv) {
   auto dotdiff = norm(dotprod_t-dotprod_0);
   std::cout << GridLogMessage << "|<eta(t),phi_rng>-<eta(t=0),src>| = " << norm(dotprod_t - dotprod_0) << std::endl;
   assert(dotdiff < 1e-8);
-  }
+  
   Grid_finalize();
 }  // main
