@@ -114,8 +114,8 @@ int main(int argc, char **argv) {
   ZF.smear(Uflow, phi, Umu, src);
   LatticeFermionD diff = phi_dfft - phi;
   
-  auto avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
-             +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
+  auto avg = (norm2(PeekIndex<SpinIndex>(diff,0))+norm2(PeekIndex<SpinIndex>(diff,1))
+             +norm2(PeekIndex<SpinIndex>(diff,2))+norm2(PeekIndex<SpinIndex>(diff,3)))/Grid.lSites()/4.0;
 
   RealD WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow);
   RealD WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow);
@@ -124,11 +124,24 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
 
-  std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinorIndex>(src,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinorIndex>(phi_dfft,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of src <0>= " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi <0>= " << norm2(PeekIndex<SpinIndex>(phi,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft <0>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of src <1>= " << norm2(PeekIndex<SpinIndex>(src,1)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi <1>= " << norm2(PeekIndex<SpinIndex>(phi,1)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft <1>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,1)) << std::endl;
+  std::cout << GridLogMessage << "Norm of src <2>= " << norm2(PeekIndex<SpinIndex>(src,2)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi <2>= " << norm2(PeekIndex<SpinIndex>(phi,2)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft <2>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,2)) << std::endl;
+  std::cout << GridLogMessage << "Norm of src <3>= " << norm2(PeekIndex<SpinIndex>(src,3)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi <3>= " << norm2(PeekIndex<SpinIndex>(phi,3)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft <3>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,3)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <0>= " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <1>= " << norm2(PeekIndex<SpinIndex>(diff,1)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <2>= " << norm2(PeekIndex<SpinIndex>(diff,2)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <3>= " << norm2(PeekIndex<SpinIndex>(diff,3)) << std::endl;
+  // std::cout << GridLogMessage << "Testing lsites " << Grid.lSites();
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_flow = " << avg << std::endl;
   assert(avg < 1e-5);
 
@@ -154,8 +167,8 @@ int main(int argc, char **argv) {
 
   ZF.smear(Uflow_rng, phi_rng, Urng, src);
   diff = phi_dfft - phi_rng;
-  avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
-        +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
+  avg = (norm2(PeekIndex<SpinIndex>(diff,0))+norm2(PeekIndex<SpinIndex>(diff,1))
+        +norm2(PeekIndex<SpinIndex>(diff,2))+norm2(PeekIndex<SpinIndex>(diff,3)))/Grid.lSites()/4.0;
   WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow_rng);
   WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow_rng);
   WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow_rng);
@@ -163,21 +176,21 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "T0                 "<< conf << "   " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  "<< conf << "   " << WFlow_TC   << std::endl;
 
-  std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinorIndex>(src,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinorIndex>(phi_rng,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinorIndex>(phi_dfft,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinIndex>(phi_rng,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinIndex>(phi_dfft,0)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of phi_dfft - phi_rng = " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
   assert(avg < 1e-5);
 
   diff = phi - phi_rng;
-  avg = (norm2(PeekIndex<SpinorIndex>(diff,0))+norm2(PeekIndex<SpinorIndex>(diff,1))
-        +norm2(PeekIndex<SpinorIndex>(diff,2))+norm2(PeekIndex<SpinorIndex>(diff,3)))/Grid.lSites()/4.0;
-  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinorIndex>(phi_rng,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of g*phi = " << norm2(PeekIndex<SpinorIndex>(phi,0)) << std::endl;
+  avg = (norm2(PeekIndex<SpinIndex>(diff,0))+norm2(PeekIndex<SpinIndex>(diff,1))
+        +norm2(PeekIndex<SpinIndex>(diff,2))+norm2(PeekIndex<SpinIndex>(diff,3)))/Grid.lSites()/4.0;
+  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinIndex>(phi_rng,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of g*phi = " << norm2(PeekIndex<SpinIndex>(phi,0)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinorIndex>(diff,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
   assert(avg < 1e-5);
 
@@ -189,7 +202,7 @@ int main(int argc, char **argv) {
   //Testing adjoint flow
   ZF.smear_adjoint(phi_adj,eta);
   auto dotprod_0 = innerProduct(phi_adj,src);
-  std::cout << GridLogMessage << "Norm of eta = " << norm2(PeekIndex<SpinorIndex>(eta,0)) << std::endl;
+  std::cout << GridLogMessage << "Norm of eta = " << norm2(PeekIndex<SpinIndex>(eta,0)) << std::endl;
   std::cout << GridLogMessage << "Testing dotprod <eta(t=0),src> = " << dotprod_0 <<std::endl;
   auto dotdiff = norm(dotprod_t-dotprod_0);
   std::cout << GridLogMessage << "|<eta(t),phi_rng>-<eta(t=0),src>| = " << norm(dotprod_t - dotprod_0) << std::endl;
