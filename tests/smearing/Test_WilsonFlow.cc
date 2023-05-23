@@ -36,7 +36,6 @@ namespace Grid{
             int, meas_interval,
             double, maxTau); // for the adaptive algorithm
 
-    WFParameters() {}       
 
     template <class ReaderClass >
     WFParameters(Reader<ReaderClass>& Reader){
@@ -67,31 +66,20 @@ int main(int argc, char **argv) {
 
   Grid_init(&argc, &argv);
   GridLogLayout();
-  // WFParameters wfp;
-  // wfp.steps = 200;
-  // wfp.step_size = 0.01;
-  // wfp.meas_interval = 50;
-  // wfp.maxTau = 2.0;
-
-  // Grid::XmlWriter Writer("output.xml");
-  // try{ write(Writer,"WFParameters",wfp); }
-  // catch(...) {
-  //   std::cout << GridLogError << "Error writing xml file" << std::endl;
-  //   exit(EXIT_FAILURE);
-  // }
+  
   auto latt_size   = GridDefaultLatt();
   auto simd_layout = GridDefaultSimd(Nd, vComplex::Nsimd());
   auto mpi_layout  = GridDefaultMpi();
   GridCartesian               Grid(latt_size, simd_layout, mpi_layout);
   GridRedBlackCartesian     RBGrid(&Grid);
 
-//  std::vector<int> seeds({1, 2, 3, 4, 5});
+  std::vector<int> seeds({1, 2, 3, 4, 5});
   GridSerialRNG sRNG;
   GridParallelRNG pRNG(&Grid);
-  //pRNG.SeedFixedIntegers(seeds);
+  pRNG.SeedFixedIntegers(seeds);
 
   LatticeGaugeField Umu(&Grid), Uflow(&Grid);
-  //SU<Nc>::HotConfiguration(pRNG, Umu);
+  SU<Nc>::HotConfiguration(pRNG, Umu);
   
   typedef Grid::XmlReader       Serialiser;
   Serialiser Reader("input.xml");
