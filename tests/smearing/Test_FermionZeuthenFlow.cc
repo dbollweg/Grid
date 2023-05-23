@@ -7,8 +7,7 @@ namespace Grid{
             double, step_size,
             int, checkpoints,
             int, meas_interval,
-            double, maxTau); // for the adaptive algorithm
-
+            double, maxTau); 
     
     template <class ReaderClass >
     FlowParameters(Reader<ReaderClass>& Reader){
@@ -21,7 +20,7 @@ namespace Grid{
 void dfft_solve(GridCartesian& thisgrid, const LatticeFermionD& src, LatticeFermionD &sol, RealD epsilon) {
   FFT theFFT(&thisgrid);
   LatticeFermionD tmp(&thisgrid);
-  theFFT.FFT_all_dim(tmp,src,FFT::forward); //tmp = U(omega,0)
+  theFFT.FFT_all_dim(tmp,src,FFT::forward); 
 
   Coordinate latt_size = thisgrid.FullDimensions();
 
@@ -60,8 +59,7 @@ int main(int argc, char **argv) {
   pRNG.SeedFixedIntegers(seeds);
 
   LatticeGaugeField Umu(&Grid), Uflow(&Grid);
-  //SU<Nc>::HotConfiguration(pRNG, Umu);
-
+ 
   typedef Grid::XmlReader       Serialiser;
   Serialiser Reader("input.xml");
   FlowParameters Par(Reader);
@@ -86,9 +84,9 @@ int main(int argc, char **argv) {
     dfft_solve(Grid, tmp_src, phi_dfft, Par.step_size);
     tmp_src=phi_dfft;
   }
-  std::cout << GridLogMessage << "Finishd dfft solve!" << std::endl;
+  std::cout << GridLogMessage << "Finished discrete fft solve for reference solution." << std::endl;
   int t=Par.maxTau;
-  std::cout << GridLogMessage << "Starting FermionFlow with stepsize " << Par.step_size << std::endl;
+  std::cout << GridLogMessage << "Starting FermionFlow on unit gauge config with stepsize " << Par.step_size << std::endl;
   FermionFlow<PeriodicGimplR,ZeuthenAction<PeriodicGimplR>,LatticeFermionD> ZF(Par.step_size, Par.steps, Umu,
 					Par.meas_interval,Par.checkpoints);
 
@@ -105,24 +103,10 @@ int main(int argc, char **argv) {
   std::cout << GridLogMessage << "T0                 " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  " << WFlow_TC   << std::endl;
 
-  std::cout << GridLogMessage << "Norm of src <0>= " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi <0>= " << norm2(PeekIndex<SpinIndex>(phi,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft <0>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of src <1>= " << norm2(PeekIndex<SpinIndex>(src,1)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi <1>= " << norm2(PeekIndex<SpinIndex>(phi,1)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft <1>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,1)) << std::endl;
-  std::cout << GridLogMessage << "Norm of src <2>= " << norm2(PeekIndex<SpinIndex>(src,2)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi <2>= " << norm2(PeekIndex<SpinIndex>(phi,2)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft <2>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,2)) << std::endl;
-  std::cout << GridLogMessage << "Norm of src <3>= " << norm2(PeekIndex<SpinIndex>(src,3)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi <3>= " << norm2(PeekIndex<SpinIndex>(phi,3)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft <3>= " << norm2(PeekIndex<SpinIndex>(phi_dfft,3)) << std::endl;
-  
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <0>= " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <1>= " << norm2(PeekIndex<SpinIndex>(diff,1)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <2>= " << norm2(PeekIndex<SpinIndex>(diff,2)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <3>= " << norm2(PeekIndex<SpinIndex>(diff,3)) << std::endl;
-  // std::cout << GridLogMessage << "Testing lsites " << Grid.lSites();
+  for (int i = 0; i < Ns; i++) {
+    std::cout << GridLogMessage << "Norm of phi_dfft - phi_flow <" << i << "> = " << norm2(PeekIndex<SpinIndex>(diff,i)) << std::endl;
+  }
+
   std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_flow = " << avg << std::endl;
   assert(avg < 1e-5);
 
@@ -145,45 +129,49 @@ int main(int argc, char **argv) {
 
   //rotate phi to new gauge;
   phi = g * phi;
-
+ 
+  std::cout << GridLogMessage << "Starting FermionFlow on random gauge transform of unit config with stepsize " << Par.step_size << std::endl;
+  
   ZF.smear(Uflow_rng, phi_rng, Urng, src);
   diff = phi_dfft - phi_rng;
+
   avg = (norm2(PeekIndex<SpinIndex>(diff,0))+norm2(PeekIndex<SpinIndex>(diff,1))
         +norm2(PeekIndex<SpinIndex>(diff,2))+norm2(PeekIndex<SpinIndex>(diff,3)))/Grid.lSites()/4.0;
+
   WFlow_plaq = WilsonLoops<PeriodicGimplR>::avgPlaquette(Uflow_rng);
   WFlow_TC   = WilsonLoops<PeriodicGimplR>::TopologicalCharge(Uflow_rng);
   WFlow_T0   = ZF.energyDensityPlaquette(t,Uflow_rng);
   std::cout << GridLogMessage << "Plaquette          " << WFlow_plaq << std::endl;
   std::cout << GridLogMessage << "T0                 " << WFlow_T0 << std::endl;
   std::cout << GridLogMessage << "TopologicalCharge  " << WFlow_TC   << std::endl;
-
-  std::cout << GridLogMessage << "Norm of src = " << norm2(PeekIndex<SpinIndex>(src,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinIndex>(phi_rng,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of phi_dfft = " << norm2(PeekIndex<SpinIndex>(phi_dfft,0)) << std::endl;
   
-  std::cout << GridLogMessage << "Norm of phi_dfft - phi_rng = " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
+  for (int i = 0; i < Ns; i++) {
+    std::cout << GridLogMessage << "Norm of g*phi_dfft - phi_flow <" << i << "> = " << norm2(PeekIndex<SpinIndex>(diff,i)) << std::endl;
+  }
+
+  std::cout << GridLogMessage << "Norm/vol/Ns of g*phi_dfft - phi_flow = " << avg << std::endl;
   assert(avg < 1e-5);
 
   diff = phi - phi_rng;
   avg = (norm2(PeekIndex<SpinIndex>(diff,0))+norm2(PeekIndex<SpinIndex>(diff,1))
         +norm2(PeekIndex<SpinIndex>(diff,2))+norm2(PeekIndex<SpinIndex>(diff,3)))/Grid.lSites()/4.0;
-  std::cout << GridLogMessage << "Norm of phi_rng = " << norm2(PeekIndex<SpinIndex>(phi_rng,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm of g*phi = " << norm2(PeekIndex<SpinIndex>(phi,0)) << std::endl;
-  
-  std::cout << GridLogMessage << "Norm of g*phi - phi_rng = " << norm2(PeekIndex<SpinIndex>(diff,0)) << std::endl;
-  std::cout << GridLogMessage << "Norm/vol/Ns of phi_dfft - phi_rng = " << avg << std::endl;
+
+  for (int i = 0; i < Ns; i++) {
+    std::cout << GridLogMessage << "Norm of g*phi_flow(U_unit) - phi_flow(U_trafo) <" << i << "> = " << norm2(PeekIndex<SpinIndex>(diff,i)) << std::endl;
+  }
+
+  std::cout << GridLogMessage << "Norm/vol/Ns of g*phi_flow(U_unit) - phi_flow(U)trafo) = " << avg << std::endl;
   assert(avg < 1e-5);
 
   LatticeFermionD eta(&Grid);
   random(pRNG, eta);
   LatticeFermionD phi_adj(&Grid);
   auto dotprod_t = innerProduct(eta,phi_rng);
+  std::cout << GridLogMessage << "Testing adjoint flow equation:" << std::endl;
   std::cout << GridLogMessage << "Testing dotprod <eta(t),phi_rng> = " << dotprod_t <<std::endl;
   //Testing adjoint flow
   ZF.smear_adjoint(phi_adj,eta);
   auto dotprod_0 = innerProduct(phi_adj,src);
-  std::cout << GridLogMessage << "Norm of eta = " << norm2(PeekIndex<SpinIndex>(eta,0)) << std::endl;
   std::cout << GridLogMessage << "Testing dotprod <eta(t=0),src> = " << dotprod_0 <<std::endl;
   auto dotdiff = norm(dotprod_t-dotprod_0);
   std::cout << GridLogMessage << "|<eta(t),phi_rng>-<eta(t=0),src>| = " << norm(dotprod_t - dotprod_0) << std::endl;

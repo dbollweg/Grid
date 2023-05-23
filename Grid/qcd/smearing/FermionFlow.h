@@ -176,7 +176,7 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear(GaugeField& out, Spinor
     for (unsigned int step = 1; step <= Nstep; step++) { //step indicates the number of smearing steps applied at the time of measurement
     auto start = std::chrono::high_resolution_clock::now();
     evolve_step(out, chi_out, taus);
-    std::cout << GridLogMessage << "[FermionFlow]  chi norm after step = " << norm2(PeekIndex<SpinIndex>(chi_out,0)) << std::endl;
+    std::cout << GridLogMessage << "[FermionFlow] Chi norm after step " << step << " = " << norm2(PeekIndex<SpinIndex>(chi_out,0)) << std::endl;
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 #ifdef WF_TIMING
@@ -239,7 +239,7 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear_adjoint(SpinorField& ch
             evolve_step_adjoint(tmp_U, chi_out, taus);
         }
 
-        std::cout << GridLogMessage << "[Adjoint FermionFlow]  chi norm after (reverse) step = " << norm2(PeekIndex<SpinIndex>(chi_out,0)) << std::endl;
+        std::cout << GridLogMessage << "[Adjoint FermionFlow]  Chi norm after step " << step<< " = " << norm2(PeekIndex<SpinIndex>(chi_out,0)) << std::endl;
     
     }
 
