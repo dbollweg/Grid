@@ -8,8 +8,6 @@ namespace Grid{
             int, meas_interval,
             double, maxTau); // for the adaptive algorithm
 
-    ZFParameters() {}       
-
     template <class ReaderClass >
     ZFParameters(Reader<ReaderClass>& Reader){
       read(Reader, "ZeuthenFlow", *this);
@@ -46,16 +44,16 @@ int main(int argc, char **argv) {
   GridCartesian               Grid(latt_size, simd_layout, mpi_layout);
   GridRedBlackCartesian     RBGrid(&Grid);
 
-//  std::vector<int> seeds({1, 2, 3, 4, 5});
+  std::vector<int> seeds({1, 2, 3, 4, 5});
   GridSerialRNG sRNG;
   GridParallelRNG pRNG(&Grid);
-  //pRNG.SeedFixedIntegers(seeds);
+  pRNG.SeedFixedIntegers(seeds);
 
   LatticeGaugeField Umu(&Grid), Uflow(&Grid);
-  //SU<Nc>::HotConfiguration(pRNG, Umu);
+  SU<Nc>::HotConfiguration(pRNG, Umu);
   
   typedef Grid::XmlReader       Serialiser;
-  Serialiser Reader("input_zf.xml");
+  Serialiser Reader("input.xml");
   ZFParameters ZFPar(Reader);
   ConfParameters CPar(Reader);
   CheckpointerParameters CPPar(CPar.conf_prefix, CPar.rng_prefix);
