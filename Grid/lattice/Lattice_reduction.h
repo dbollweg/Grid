@@ -27,6 +27,7 @@ Author: Christoph Lehner <christoph@lhnr.de>
 
 #if defined(GRID_CUDA)||defined(GRID_HIP)
 #include <Grid/lattice/Lattice_reduction_gpu.h>
+#include <cub/cub.cuh>
 #endif
 #if defined(GRID_SYCL)
 #include <Grid/lattice/Lattice_reduction_sycl.h>
@@ -519,36 +520,61 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   int ld=grid->_ldimensions[orthogdim];
   int rd=grid->_rdimensions[orthogdim];
 
+  int e1=    grid->_slice_nblock[orthogdim];
+  int e2=    grid->_slice_block [orthogdim];
+  int stride=grid->_slice_stride[orthogdim];
+  int ostride=grid->_ostride[orthogdim];
   Vector<vobj> lvSum(rd); // will locally sum vectors first
   Vector<sobj> lsSum(ld,Zero());                    // sum across these down to scalars
+  Vector<vobj> reduction_buffer(e1*e2);
   ExtractBuffer<sobj> extracted(Nsimd);                  // splitting the SIMD
-
+  
   result.resize(fd); // And then global sum to return the same vector to every node 
   for(int r=0;r<rd;r++){
     lvSum[r]=Zero();
   }
 
-  int e1=    grid->_slice_nblock[orthogdim];
-  int e2=    grid->_slice_block [orthogdim];
-  int stride=grid->_slice_stride[orthogdim];
-  int ostride=grid->_ostride[orthogdim];
   // sum over reduced dimension planes, breaking out orthog dir
   // Parallel over orthog direction
   autoView( Data_v, Data, AcceleratorRead);
   auto lvSum_p = &lvSum[0];
+  auto rb_p = &reduction_buffer[0];
   typedef decltype(coalescedRead(Data_v[0])) CalcElem;
-  accelerator_for( r,rd, grid->Nsimd(),{
-    CalcElem elem = Zero();
-    int so=r*ostride; // base offset for start of plane 
-    for(int n=0;n<e1;n++){
-      for(int b=0;b<e2;b++){
-	      int ss= so+n*stride+b;
-	      elem += coalescedRead(Data_v[ss]);
-      }
-    }
-    coalescedWrite(lvSum_p[r], elem);
-  });
+  
+  for (int r = 0; r < rd; r++) {
+    //prepare buffer for reduction
+    accelerator_for( s,e1*e2, grid->Nsimd(),{
+      
+      CalcElem elem = Zero();
+      int n = s / e2;
+      int b = s % e2;
+      int so=r*ostride; // base offset for start of plane 
+      int ss= so+n*stride+b;
+      elem = coalescedRead(Data_v[ss]);
+      coalescedWrite(rb_p[s], elem);
+      // coalescedWrite(lvSum_p[r], elem);
 
+    });
+    size_t temp_storage_bytes = 0;
+    size_t size = e1*e2;
+    void     *helperArray = NULL;
+    vobj *d_out;
+    cudaMalloc(&d_out,sizeof(vobj));
+    cudaError_t gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
+    if (gpuErr!=cudaSuccess) {
+      std::cout << "Encountered error during cub::DeviceReduce::Sum(1)! Error: " << gpuErr <<std::endl;
+    }
+    gpuErr = cudaMalloc(&helperArray,temp_storage_bytes);
+
+    if (gpuErr!=cudaSuccess) {
+      std::cout << "Encountered error during cudaMalloc Error: " << gpuErr <<std::endl;
+    }
+    gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, d_out, size);
+    if (gpuErr!=cudaSuccess) {
+      std::cout << "Encountered error during cub::DeviceReduce::Sum(2)! Error: " << gpuErr <<std::endl;
+    }
+    cudaMemcpy(&lvSum[r],d_out,sizeof(vobj),cudaMemcpyDeviceToHost);
+  }
   // Sum across simd lanes in the plane, breaking out orthog dir.
   Coordinate icoor(Nd);
 
@@ -561,12 +587,12 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
       grid->iCoorFromIindex(icoor,idx);
 
       int ldx =rt+icoor[orthogdim]*rd;
-
+      
       lsSum[ldx]=lsSum[ldx]+extracted[idx];
 
     }
   }
-  
+
   // sum over nodes.
   for(int t=0;t<fd;t++){
     int pt = t/ld; // processor plane

@@ -9,7 +9,7 @@ int main (int argc, char ** argv) {
     Grid_init(&argc,&argv);
     GridLogLayout();
 
-    auto latt_size = GridDefaultLatt();
+    Coordinate latt_size({64,64,64,64});
     auto simd_layout = GridDefaultSimd(Nd, vComplex::Nsimd());
     auto mpi_layout = GridDefaultMpi();
     GridCartesian Grid(latt_size, simd_layout, mpi_layout);
@@ -19,11 +19,11 @@ int main (int argc, char ** argv) {
     GridParallelRNG pRNG(&Grid);
     pRNG.SeedFixedIntegers(seeds);
 
-    LatticeComplexD test_data(&Grid);
+    LatticeFermionD test_data(&Grid);
     gaussian(pRNG,test_data);
 
-    std::vector<TComplex> reduction_reference;
-    std::vector<TComplex> reduction_result;
+    std::vector<SpinColourVectorD> reduction_reference;
+    std::vector<SpinColourVectorD> reduction_result;
 
     for (int i = 0; i < Nd; i++) {
         RealD t=-usecond();
