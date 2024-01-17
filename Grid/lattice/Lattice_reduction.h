@@ -47,6 +47,7 @@ Author: Christoph Lehner <christoph@lhnr.de>
 #define gpuError_t hipError_t
 #define gpuSuccess hipSuccess
 
+extern hipStream_t computeStream;
 #endif
 #endif
 #if defined(GRID_SYCL)
@@ -565,7 +566,7 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   size_t temp_storage_bytes = 0;
   size_t size = e1*e2;
   gpuMalloc(&d_out,rd*sizeof(vobj));
-  gpuError_t gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
+  gpuError_t gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size, computeStream);
   if (gpuErr!=gpuSuccess) {
     std::cout << "Encountered error during cub::DeviceReduce::Sum(1)! Error: " << gpuErr <<std::endl;
   }
@@ -576,7 +577,7 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   }
   for (int r = 0; r < rd; r++) {
     //prepare buffer for reduction
-    accelerator_for( s,e1*e2, grid->Nsimd(),{
+    accelerator_forNB( s,e1*e2, grid->Nsimd(),{ //use non-blocking accelerator_for since we are submitting to the same computeStream anyway
       
       int n = s / e2;
       int b = s % e2;
@@ -589,12 +590,14 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
     
     
 
-    
-    gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, &d_out[r], size);
+    //issue reductions in computeStream to avoid sync
+    gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, &d_out[r], size, computeStream);
     if (gpuErr!=gpuSuccess) {
       std::cout << "Encountered error during cub::DeviceReduce::Sum(2)! Error: " << gpuErr <<std::endl;
     }
   }
+  //sync before copy
+  accelerator_barrier();
   gpuMemcpy(&lvSum[0],d_out,rd*sizeof(vobj),gpuMemcpyDeviceToHost);
 
   // Sum across simd lanes in the plane, breaking out orthog dir.
