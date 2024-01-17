@@ -537,10 +537,24 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   // sum over reduced dimension planes, breaking out orthog dir
   // Parallel over orthog direction
   autoView( Data_v, Data, AcceleratorRead);
-  auto lvSum_p = &lvSum[0];
+
   auto rb_p = &reduction_buffer[0];
   typedef decltype(coalescedRead(Data_v[0])) CalcElem;
+
+  void *helperArray = NULL;
+  vobj *d_out;
+  size_t temp_storage_bytes = 0;
+  size_t size = e1*e2;
+  cudaMalloc(&d_out,rd*sizeof(vobj));
+  cudaError_t gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
+  if (gpuErr!=cudaSuccess) {
+    std::cout << "Encountered error during cub::DeviceReduce::Sum(1)! Error: " << gpuErr <<std::endl;
+  }
   
+  gpuErr = cudaMalloc(&helperArray,temp_storage_bytes);
+  if (gpuErr!=cudaSuccess) {
+    std::cout << "Encountered error during cudaMalloc Error: " << gpuErr <<std::endl;
+  }
   for (int r = 0; r < rd; r++) {
     //prepare buffer for reduction
     accelerator_for( s,e1*e2, grid->Nsimd(),{
@@ -552,29 +566,19 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
       int ss= so+n*stride+b;
       elem = coalescedRead(Data_v[ss]);
       coalescedWrite(rb_p[s], elem);
-      // coalescedWrite(lvSum_p[r], elem);
 
     });
-    size_t temp_storage_bytes = 0;
-    size_t size = e1*e2;
-    void     *helperArray = NULL;
-    vobj *d_out;
-    cudaMalloc(&d_out,sizeof(vobj));
-    cudaError_t gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
-    if (gpuErr!=cudaSuccess) {
-      std::cout << "Encountered error during cub::DeviceReduce::Sum(1)! Error: " << gpuErr <<std::endl;
-    }
-    gpuErr = cudaMalloc(&helperArray,temp_storage_bytes);
+    
+    
 
-    if (gpuErr!=cudaSuccess) {
-      std::cout << "Encountered error during cudaMalloc Error: " << gpuErr <<std::endl;
-    }
-    gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, d_out, size);
+    
+    gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, &d_out[r], size);
     if (gpuErr!=cudaSuccess) {
       std::cout << "Encountered error during cub::DeviceReduce::Sum(2)! Error: " << gpuErr <<std::endl;
     }
-    cudaMemcpy(&lvSum[r],d_out,sizeof(vobj),cudaMemcpyDeviceToHost);
   }
+  cudaMemcpy(&lvSum[0],d_out,rd*sizeof(vobj),cudaMemcpyDeviceToHost);
+
   // Sum across simd lanes in the plane, breaking out orthog dir.
   Coordinate icoor(Nd);
 

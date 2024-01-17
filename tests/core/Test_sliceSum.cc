@@ -10,7 +10,7 @@ int main (int argc, char ** argv) {
     GridLogLayout();
 
     Coordinate latt_size({64,64,64,64});
-    auto simd_layout = GridDefaultSimd(Nd, vComplex::Nsimd());
+    auto simd_layout = GridDefaultSimd(Nd, vComplexD::Nsimd());
     auto mpi_layout = GridDefaultMpi();
     GridCartesian Grid(latt_size, simd_layout, mpi_layout);
 
@@ -19,11 +19,11 @@ int main (int argc, char ** argv) {
     GridParallelRNG pRNG(&Grid);
     pRNG.SeedFixedIntegers(seeds);
 
-    LatticeFermionD test_data(&Grid);
+    LatticeComplexD test_data(&Grid);
     gaussian(pRNG,test_data);
 
-    std::vector<SpinColourVectorD> reduction_reference;
-    std::vector<SpinColourVectorD> reduction_result;
+    std::vector<TComplex> reduction_reference;
+    std::vector<TComplex> reduction_result;
 
     for (int i = 0; i < Nd; i++) {
         RealD t=-usecond();
@@ -38,14 +38,11 @@ int main (int argc, char ** argv) {
 
     for(int t=0;t<reduction_reference.size();t++){
 
-      std::cout << t<<" reference "<< reduction_reference[t] <<std::endl;
-      //TComplex diff = reduced_ref[t]-reduced_gpu[t];
-      //assert(abs(TensorRemove(diff)) < 1e-8 );
+      auto diff = reduction_reference[t]-reduction_result[t];
+      assert(abs(TensorRemove(diff)) < 1e-8 );
     }
 
-    for (int t = 0; t<reduction_result.size(); t++) {
-        std::cout <<t<<" result " << reduction_result[t] <<std::endl;
-    }
+    
     }
     Grid_finalize();
     return 0;
