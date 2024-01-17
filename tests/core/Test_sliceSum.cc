@@ -1,7 +1,6 @@
 #include <Grid/Grid.h>
 
 
-
 int main (int argc, char ** argv) {
     
     using namespace Grid;
@@ -9,7 +8,7 @@ int main (int argc, char ** argv) {
     Grid_init(&argc,&argv);
     GridLogLayout();
 
-    Coordinate latt_size({64,64,64,64});
+    Coordinate latt_size({64,64,64,16});
     auto simd_layout = GridDefaultSimd(Nd, vComplexD::Nsimd());
     auto mpi_layout = GridDefaultMpi();
     GridCartesian Grid(latt_size, simd_layout, mpi_layout);
@@ -22,8 +21,14 @@ int main (int argc, char ** argv) {
     LatticeComplexD test_data(&Grid);
     gaussian(pRNG,test_data);
 
-    std::vector<TComplex> reduction_reference;
-    std::vector<TComplex> reduction_result;
+    std::vector<TComplexD> reduction_reference;
+    std::vector<TComplexD> reduction_result;
+
+    //warmup
+    for (int sweeps = 0; sweeps < 5; sweeps++) {
+      sliceSumGpu(test_data,reduction_result,0);
+    }
+
 
     for (int i = 0; i < Nd; i++) {
         RealD t=-usecond();
@@ -32,7 +37,9 @@ int main (int argc, char ** argv) {
         std::cout << " sliceSum took "<<t<<" usecs"<<std::endl;
         
         RealD tgpu=-usecond();
+        tracePush("sliceSumGpu");
         sliceSumGpu(test_data,reduction_result,i);
+        tracePop("sliceSumGpu");
         tgpu+=usecond();
         std::cout <<" sliceSumGpu took "<<tgpu<<" usecs"<<std::endl;
 

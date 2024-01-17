@@ -546,7 +546,7 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   int ostride=grid->_ostride[orthogdim];
   Vector<vobj> lvSum(rd); // will locally sum vectors first
   Vector<sobj> lsSum(ld,Zero());                    // sum across these down to scalars
-  Vector<vobj> reduction_buffer(e1*e2);
+  commVector<vobj> reduction_buffer(e1*e2);
   ExtractBuffer<sobj> extracted(Nsimd);                  // splitting the SIMD
   
   result.resize(fd); // And then global sum to return the same vector to every node 
@@ -559,7 +559,6 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   autoView( Data_v, Data, AcceleratorRead);
 
   auto rb_p = &reduction_buffer[0];
-  typedef decltype(coalescedRead(Data_v[0])) CalcElem;
 
   void *helperArray = NULL;
   vobj *d_out;
@@ -579,13 +578,12 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
     //prepare buffer for reduction
     accelerator_for( s,e1*e2, grid->Nsimd(),{
       
-      CalcElem elem = Zero();
       int n = s / e2;
       int b = s % e2;
       int so=r*ostride; // base offset for start of plane 
       int ss= so+n*stride+b;
-      elem = coalescedRead(Data_v[ss]);
-      coalescedWrite(rb_p[s], elem);
+
+      coalescedWrite(rb_p[s], coalescedRead(Data_v[ss]));
 
     });
     
