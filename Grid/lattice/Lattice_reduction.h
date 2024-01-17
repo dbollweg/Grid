@@ -27,7 +27,27 @@ Author: Christoph Lehner <christoph@lhnr.de>
 
 #if defined(GRID_CUDA)||defined(GRID_HIP)
 #include <Grid/lattice/Lattice_reduction_gpu.h>
+#if defined(GRID_CUDA)
+
 #include <cub/cub.cuh>
+#define gpucub cub
+#define gpuMalloc cudaMalloc
+#define gpuMemcpy cudaMemcpy
+#define gpuMemcpyDeviceToHost cudaMemcpyDeviceToHost
+#define gpuError_t cudaError_t
+#define gpuSuccess cudaSuccess
+
+#elif defined(GRID_HIP)
+
+#include <hipcub/hipcub.hpp>
+#define gpucub hipcub
+#define gpuMalloc hipMalloc
+#define gpuMemcpy hipMemcpy
+#define gpuMemcpyDeviceToHost hipMemcpyDeviceToHost
+#define gpuError_t hipError_t
+#define gpuSuccess hipSuccess
+
+#endif
 #endif
 #if defined(GRID_SYCL)
 #include <Grid/lattice/Lattice_reduction_sycl.h>
@@ -545,15 +565,15 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
   vobj *d_out;
   size_t temp_storage_bytes = 0;
   size_t size = e1*e2;
-  cudaMalloc(&d_out,rd*sizeof(vobj));
-  cudaError_t gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
-  if (gpuErr!=cudaSuccess) {
+  gpuMalloc(&d_out,rd*sizeof(vobj));
+  gpuError_t gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p,d_out, size);
+  if (gpuErr!=gpuSuccess) {
     std::cout << "Encountered error during cub::DeviceReduce::Sum(1)! Error: " << gpuErr <<std::endl;
   }
   
-  gpuErr = cudaMalloc(&helperArray,temp_storage_bytes);
-  if (gpuErr!=cudaSuccess) {
-    std::cout << "Encountered error during cudaMalloc Error: " << gpuErr <<std::endl;
+  gpuErr = gpuMalloc(&helperArray,temp_storage_bytes);
+  if (gpuErr!=gpuSuccess) {
+    std::cout << "Encountered error during gpuMalloc Error: " << gpuErr <<std::endl;
   }
   for (int r = 0; r < rd; r++) {
     //prepare buffer for reduction
@@ -572,12 +592,12 @@ template<class vobj> inline void sliceSumGpu(const Lattice<vobj> &Data,std::vect
     
 
     
-    gpuErr =cub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, &d_out[r], size);
-    if (gpuErr!=cudaSuccess) {
+    gpuErr =gpucub::DeviceReduce::Sum(helperArray, temp_storage_bytes, rb_p, &d_out[r], size);
+    if (gpuErr!=gpuSuccess) {
       std::cout << "Encountered error during cub::DeviceReduce::Sum(2)! Error: " << gpuErr <<std::endl;
     }
   }
-  cudaMemcpy(&lvSum[0],d_out,rd*sizeof(vobj),cudaMemcpyDeviceToHost);
+  gpuMemcpy(&lvSum[0],d_out,rd*sizeof(vobj),gpuMemcpyDeviceToHost);
 
   // Sum across simd lanes in the plane, breaking out orthog dir.
   Coordinate icoor(Nd);
