@@ -22,7 +22,7 @@ public:
 
     FermionFlow(const RealD Epsilon, const int Nstep, const GaugeField &U, 
     unsigned int meas_interval = 1, int Nckpoints = 10): GradientFlowBase<Gimpl,GaugeAction>(meas_interval), Nstep(Nstep),
-    Nckpoints(Nckpoints), epsilon(Epsilon), ckpoint_fields(Nckpoints,U.Grid()), cached_fields(Nstep/Nckpoints,U.Grid()) {}
+    Nckpoints(Nckpoints), epsilon(Epsilon), ckpoint_fields(Nckpoints,U.Grid()), cached_fields(Nckpoints > 0 ? Nstep/Nckpoints : 0,U.Grid()) {}
 
     void smear(GaugeField& out, SpinorField& chi_out, const GaugeField& in, const SpinorField& chi_in) const;
     void smear(GaugeField& out, const GaugeField& in) const override {};
@@ -183,10 +183,11 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear(GaugeField& out, Spinor
     std::cout << "Time to evolve " << diff.count() << " s\n";
 #endif
     //Checkpoint gaugefield for solving adjoint equation in reverse
-    if (step % (Nstep/Nckpoints) == 0 && step < Nstep) {
-        ckpoint_fields[step/(Nstep/Nckpoints)] = out;
+    if (Nckpoints > 0) {
+        if (step % (Nstep/Nckpoints) == 0 && step < Nstep) {
+            ckpoint_fields[step/(Nstep/Nckpoints)] = out;
+        }
     }
-
     //Perform measurements
     for(auto const &meas : this->functions)
       if( step % meas.first == 0 ) meas.second(step,taus,out);
@@ -195,6 +196,9 @@ void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear(GaugeField& out, Spinor
 
 template<class Gimpl, class GaugeAction, class SpinorField>
 void FermionFlow<Gimpl, GaugeAction, SpinorField>::smear_adjoint(SpinorField& chi_out, const SpinorField& chi_in) const {
+
+    assert (Nckpoints > 0);
+
     std::cout << GridLogMessage
         << "[FermionFlow] Nstep   : " << Nstep << std::endl;
     std::cout << GridLogMessage
