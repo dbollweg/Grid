@@ -31,7 +31,6 @@
 #define STENCIL_MAX (16)
 
 #include <Grid/stencil/SimpleCompressor.h>   // subdir aggregate
-#include <Grid/stencil/Lebesgue.h>   // subdir aggregate
 #include <Grid/stencil/GeneralLocalStencil.h>
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -69,57 +68,6 @@ struct DefaultImplParams {
 
 void Gather_plane_table_compute (GridBase *grid,int dimension,int plane,int cbmask,
 				 int off,std::vector<std::pair<int,int> > & table);
-
-/*
-template<class vobj,class cobj,class compressor>
-void Gather_plane_simple_table (commVector<std::pair<int,int> >& table,const Lattice<vobj> &rhs,cobj *buffer,compressor &compress, int off,int so)   __attribute__((noinline));
-
-template<class vobj,class cobj,class compressor>
-void Gather_plane_simple_table (commVector<std::pair<int,int> >& table,const Lattice<vobj> &rhs,cobj *buffer,compressor &compress, int off,int so)
-{
-  int num=table.size();
-  std::pair<int,int> *table_v = & table[0];
-
-  auto rhs_v = rhs.View(AcceleratorRead);
-  accelerator_forNB( i,num, vobj::Nsimd(), {
-    compress.Compress(buffer[off+table_v[i].first],rhs_v[so+table_v[i].second]);
-  });
-  rhs_v.ViewClose();
-}
-
-///////////////////////////////////////////////////////////////////
-// Gather for when there *is* need to SIMD split with compression
-///////////////////////////////////////////////////////////////////
-template<class cobj,class vobj,class compressor>
-void Gather_plane_exchange_table(const Lattice<vobj> &rhs,
-				 commVector<cobj *> pointers,
-				 int dimension,int plane,
-				 int cbmask,compressor &compress,int type) __attribute__((noinline));
-
-template<class cobj,class vobj,class compressor>
-void Gather_plane_exchange_table(commVector<std::pair<int,int> >& table,
-				 const Lattice<vobj> &rhs,
-				 std::vector<cobj *> &pointers,int dimension,int plane,int cbmask,
-				 compressor &compress,int type)
-{
-  assert( (table.size()&0x1)==0);
-  int num=table.size()/2;
-  int so  = plane*rhs.Grid()->_ostride[dimension]; // base offset for start of plane
-
-  auto rhs_v = rhs.View(AcceleratorRead);
-  auto rhs_p = &rhs_v[0];
-  auto p0=&pointers[0][0];
-  auto p1=&pointers[1][0];
-  auto tp=&table[0];
-  accelerator_forNB(j, num, vobj::Nsimd(), {
-      compress.CompressExchange(p0,p1, rhs_p, j,
-				so+tp[2*j  ].second,
-				so+tp[2*j+1].second,
-				type);
-  });
-  rhs_v.ViewClose();
-}
-*/
 
 void DslashResetCounts(void);
 void DslashGetCounts(uint64_t &dirichlet,uint64_t &partial,uint64_t &full);
@@ -258,6 +206,10 @@ public:
   struct Packet {
     void * send_buf;
     void * recv_buf;
+#ifndef ACCELERATOR_AWARE_MPI
+    void * host_send_buf; // Allocate this if not MPI_CUDA_AWARE
+    void * host_recv_buf; // Allocate this if not MPI_CUDA_AWARE
+#endif
     Integer to_rank;
     Integer from_rank;
     Integer do_send;
@@ -303,7 +255,6 @@ protected:
   GridBase *                        _grid;
 public:
   GridBase *Grid(void) const { return _grid; }
-  LebesgueOrder *lo;
 
   ////////////////////////////////////////////////////////////////////////
   // Needed to conveniently communicate gparity parameters into GPU memory
@@ -320,11 +271,11 @@ public:
   int face_table_computed;
   int partialDirichlet;
   int fullDirichlet;
-  std::vector<commVector<std::pair<int,int> > > face_table ;
-  Vector<int> surface_list;
+  std::vector<deviceVector<std::pair<int,int> > > face_table ;
+  deviceVector<int> surface_list;
 
-  stencilVector<StencilEntry>  _entries; // Resident in managed memory
-  commVector<StencilEntry>     _entries_device; // Resident in managed memory
+  std::vector<StencilEntry>  _entries; // Resident in host memory
+  deviceVector<StencilEntry>     _entries_device; // Resident in device memory
   std::vector<Packet> Packets;
   std::vector<Merge> Mergers;
   std::vector<Merge> MergersSHM;
@@ -408,33 +359,15 @@ public:
   // Use OpenMP Tasks for cleaner ???
   // must be called *inside* parallel region
   //////////////////////////////////////////
-  /*
-  void CommunicateThreaded()
-  {
-#ifdef GRID_OMP
-    int mythread = omp_get_thread_num();
-    int nthreads = CartesianCommunicator::nCommThreads;
-#else
-    int mythread = 0;
-    int nthreads = 1;
-#endif
-    if (nthreads == -1) nthreads = 1;
-    if (mythread < nthreads) {
-      for (int i = mythread; i < Packets.size(); i += nthreads) {
-	uint64_t bytes = _grid->StencilSendToRecvFrom(Packets[i].send_buf,
-						      Packets[i].to_rank,
-						      Packets[i].recv_buf,
-						      Packets[i].from_rank,
-						      Packets[i].bytes,i);
-      }
-    }
-  }
-  */
   ////////////////////////////////////////////////////////////////////////
   // Non blocking send and receive. Necessarily parallel.
   ////////////////////////////////////////////////////////////////////////
   void CommunicateBegin(std::vector<std::vector<CommsRequest_t> > &reqs)
   {
+    // All GPU kernel tasks must complete
+    accelerator_barrier();     // All kernels should ALREADY be complete
+    _grid->StencilBarrier();   // Everyone is here, so noone running slow and still using receive buffer
+                               // But the HaloGather had a barrier too.
     for(int i=0;i<Packets.size();i++){
       _grid->StencilSendToRecvFromBegin(MpiReqs,
 					Packets[i].send_buf,
@@ -443,16 +376,28 @@ public:
 					Packets[i].from_rank,Packets[i].do_recv,
 					Packets[i].xbytes,Packets[i].rbytes,i);
     }
+    // Get comms started then run checksums
+    // Having this PRIOR to the dslash seems to make Sunspot work... (!)
+    for(int i=0;i<Packets.size();i++){
+      if ( Packets[i].do_send )
+	FlightRecorder::xmitLog(Packets[i].send_buf,Packets[i].xbytes);
+    }
   }
 
   void CommunicateComplete(std::vector<std::vector<CommsRequest_t> > &reqs)
   {
-    _grid->StencilSendToRecvFromComplete(MpiReqs,0);
+    _grid->StencilSendToRecvFromComplete(MpiReqs,0); // MPI is done
     if   ( this->partialDirichlet ) DslashLogPartial();
     else if ( this->fullDirichlet ) DslashLogDirichlet();
     else DslashLogFull();
-    acceleratorCopySynchronise();
+    acceleratorCopySynchronise();// is in the StencilSendToRecvFromComplete
+    accelerator_barrier(); 
     _grid->StencilBarrier(); 
+    // run any checksums
+    for(int i=0;i<Packets.size();i++){
+      if ( Packets[i].do_recv )
+	FlightRecorder::recvLog(Packets[i].recv_buf,Packets[i].rbytes,Packets[i].from_rank);
+    }
   }
   ////////////////////////////////////////////////////////////////////////
   // Blocking send and receive. Either sequential or parallel.
@@ -528,6 +473,7 @@ public:
   template<class compressor>
   void HaloGather(const Lattice<vobj> &source,compressor &compress)
   {
+    accelerator_barrier();
     _grid->StencilBarrier();// Synch shared memory on a single nodes
 
     assert(source.Grid()==_grid);
@@ -540,10 +486,10 @@ public:
       compress.Point(point);
       HaloGatherDir(source,compress,point,face_idx);
     }
-    accelerator_barrier();
+    accelerator_barrier(); // All my local gathers are complete
+    _grid->StencilBarrier();// Synch shared memory on a single nodes
     face_table_computed=1;
     assert(u_comm_offset==_unified_buffer_size);
-
   }
 
   /////////////////////////
@@ -579,6 +525,7 @@ public:
       accelerator_forNB(j, words, cobj::Nsimd(), {
 	  coalescedWrite(to[j] ,coalescedRead(from [j]));
       });
+      acceleratorFenceComputeStream();
     }
   }
   
@@ -669,6 +616,7 @@ public:
     for(int i=0;i<dd.size();i++){
       decompressor::DecompressFace(decompress,dd[i]);
     }
+    acceleratorFenceComputeStream(); // dependent kernels
   }
   ////////////////////////////////////////
   // Set up routines
@@ -692,7 +640,7 @@ public:
     for(int point=0;point<this->_npoints;point++){
       this->same_node[point] = this->SameNode(point);
     }
-
+    int32_t surface_list_size=0;
     for(int site = 0 ;site< vol4;site++){
       int local = 1;
       for(int point=0;point<this->_npoints;point++){
@@ -702,11 +650,30 @@ public:
       }
       if(local == 0) {
 	for(int s=0;s<Ls;s++){
-	  surface_list.push_back(site*Ls+s);
+	  surface_list_size++;
 	}
       }
     }
-    //std::cout << "BuildSurfaceList size is "<<surface_list.size()<<std::endl;
+    std::cout << "BuildSurfaceList size is "<<surface_list.size()<<std::endl;
+    surface_list.resize(surface_list_size);
+    std::vector<int> surface_list_host(surface_list_size);
+    int32_t ss=0;
+    for(int site = 0 ;site< vol4;site++){
+      int local = 1;
+      for(int point=0;point<this->_npoints;point++){
+	if( (!this->GetNodeLocal(site*Ls,point)) && (!this->same_node[point]) ){
+	  local = 0;
+	}
+      }
+      if(local == 0) {
+	for(int s=0;s<Ls;s++){
+	  int idx=site*Ls+s;
+	  surface_list_host[ss]= idx;
+	  ss++;
+	}
+      }
+    }
+    acceleratorCopyToDevice(&surface_list_host[0],&surface_list[0],surface_list_size*sizeof(int));
   }
   /// Introduce a block structure and switch off comms on boundaries
   void DirichletBlock(const Coordinate &dirichlet_block)
@@ -1224,7 +1191,6 @@ public:
 	  ///////////////////////////////////////////////////////////
 	  int do_send = (comms_send|comms_partial_send) && (!shm_send );
 	  int do_recv = (comms_send|comms_partial_send) && (!shm_recv );
-	  
 	  AddPacket((void *)&send_buf[comm_off],
 		    (void *)&recv_buf[comm_off],
 		    xmit_to_rank, do_send,

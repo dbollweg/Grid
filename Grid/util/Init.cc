@@ -90,73 +90,6 @@ NAMESPACE_BEGIN(Grid);
 static Coordinate Grid_default_latt;
 static Coordinate Grid_default_mpi;
 
-
-///////////////////////////////////////////////////////
-// Grid Norm logging for repro testing
-///////////////////////////////////////////////////////
-int GridNormLoggingMode;
-int32_t GridNormLoggingCounter;
-std::vector<double> GridNormLogVector;
-
-void SetGridNormLoggingMode(GridNormLoggingMode_t mode)
-{
-  switch ( mode ) {
-  case GridNormLoggingModePrint:
-    SetGridNormLoggingModePrint();
-    break;
-  case GridNormLoggingModeRecord:
-    SetGridNormLoggingModeRecord();
-    break;
-  case GridNormLoggingModeVerify:
-    SetGridNormLoggingModeVerify();
-    break;
-  case GridNormLoggingModeNone:
-    GridNormLoggingMode = mode;
-    GridNormLoggingCounter=0;
-    GridNormLogVector.resize(0);
-    break;
-  default:
-    assert(0);
-  }
-}
-
-void SetGridNormLoggingModePrint(void)
-{
-  GridNormLoggingCounter = 0;
-  GridNormLogVector.resize(0);
-  GridNormLoggingMode = GridNormLoggingModePrint;
-}
-void SetGridNormLoggingModeRecord(void)
-{
-  GridNormLoggingCounter = 0;
-  GridNormLogVector.resize(0);
-  GridNormLoggingMode = GridNormLoggingModeRecord;
-}
-void SetGridNormLoggingModeVerify(void)
-{
-  GridNormLoggingCounter = 0;
-  GridNormLoggingMode = GridNormLoggingModeVerify;
-}
-void GridNormLog(double value)
-{
-  if(GridNormLoggingMode == GridNormLoggingModePrint) {
-    std::cerr<<"GridNormLog : "<< GridNormLoggingCounter <<" " << std::hexfloat << value <<std::endl;
-    GridNormLoggingCounter++;
-  }
-  if(GridNormLoggingMode == GridNormLoggingModeRecord) {
-    GridNormLogVector.push_back(value);
-    GridNormLoggingCounter++;
-  }
-  if(GridNormLoggingMode == GridNormLoggingModeVerify) {
-    assert(GridNormLoggingCounter < GridNormLogVector.size());
-    if ( value != GridNormLogVector[GridNormLoggingCounter] ) {
-      fprintf(stderr,"%s Oops, I did it again! Reproduce failure for norm %d/%zu %.16e %.16e\n",GridHostname(),GridNormLoggingCounter,GridNormLogVector.size(),
-	      value, GridNormLogVector[GridNormLoggingCounter]); fflush(stderr);
-    }
-    GridNormLoggingCounter++;
-  }
-}
-
 int GridThread::_threads =1;
 int GridThread::_hyperthreads=1;
 int GridThread::_cores=1;
@@ -359,6 +292,7 @@ void GridBanner(void)
     std::cout << "Build " << GRID_BUILD_STR(GRID_BUILD_REF) << std::endl;
 #endif
     std::cout << std::endl;
+    std::cout << std::setprecision(9);
 }
 
 void Grid_init(int *argc,char ***argv)
@@ -491,7 +425,7 @@ void Grid_init(int *argc,char ***argv)
   // Logging
   ////////////////////////////////////
   std::vector<std::string> logstreams;
-  std::string defaultLog("Error,Warning,Message,Performance");
+  std::string defaultLog("Error,Warning,Message");
   GridCmdOptionCSL(defaultLog,logstreams);
   GridLogConfigure(logstreams);
 
@@ -530,16 +464,12 @@ void Grid_init(int *argc,char ***argv)
     std::cout<<GridLogMessage<<std::endl;
     std::cout<<GridLogMessage<<"Performance:"<<std::endl;
     std::cout<<GridLogMessage<<std::endl;
-    std::cout<<GridLogMessage<<"  --comms-concurrent : Asynchronous MPI calls; several dirs at a time "<<std::endl;    
-    std::cout<<GridLogMessage<<"  --comms-sequential : Synchronous MPI calls; one dirs at a time "<<std::endl;    
     std::cout<<GridLogMessage<<"  --comms-overlap    : Overlap comms with compute "<<std::endl;    
     std::cout<<GridLogMessage<<std::endl;
     std::cout<<GridLogMessage<<"  --dslash-generic: Wilson kernel for generic Nc"<<std::endl;    
     std::cout<<GridLogMessage<<"  --dslash-unroll : Wilson kernel for Nc=3"<<std::endl;    
     std::cout<<GridLogMessage<<"  --dslash-asm    : Wilson kernel for AVX512"<<std::endl;    
     std::cout<<GridLogMessage<<std::endl;
-    std::cout<<GridLogMessage<<"  --lebesgue      : Cache oblivious Lebesgue curve/Morton order/Z-graph stencil looping"<<std::endl;    
-    std::cout<<GridLogMessage<<"  --cacheblocking n.m.o.p : Hypercuboidal cache blocking"<<std::endl;    
     std::cout<<GridLogMessage<<std::endl;
     exit(EXIT_SUCCESS);
   }
@@ -567,28 +497,8 @@ void Grid_init(int *argc,char ***argv)
     WilsonKernelsStatic::Comms = WilsonKernelsStatic::CommsThenCompute;
     StaggeredKernelsStatic::Comms = StaggeredKernelsStatic::CommsThenCompute;
   }
-  if( GridCmdOptionExists(*argv,*argv+*argc,"--comms-concurrent") ){
-    CartesianCommunicator::SetCommunicatorPolicy(CartesianCommunicator::CommunicatorPolicyConcurrent);
-  }
-  if( GridCmdOptionExists(*argv,*argv+*argc,"--comms-sequential") ){
-    CartesianCommunicator::SetCommunicatorPolicy(CartesianCommunicator::CommunicatorPolicySequential);
-  }
 
-  if( GridCmdOptionExists(*argv,*argv+*argc,"--lebesgue") ){
-    LebesgueOrder::UseLebesgueOrder=1;
-  }
   CartesianCommunicator::nCommThreads = 1;
-#ifdef GRID_COMMS_THREADS  
-  if( GridCmdOptionExists(*argv,*argv+*argc,"--comms-threads") ){
-    arg= GridCmdOptionPayload(*argv,*argv+*argc,"--comms-threads");
-    GridCmdOptionInt(arg,CartesianCommunicator::nCommThreads);
-    assert(CartesianCommunicator::nCommThreads > 0);
-  }
-#endif  
-  if( GridCmdOptionExists(*argv,*argv+*argc,"--cacheblocking") ){
-    arg= GridCmdOptionPayload(*argv,*argv+*argc,"--cacheblocking");
-    GridCmdOptionIntVector(arg,LebesgueOrder::Block);
-  }
   if( GridCmdOptionExists(*argv,*argv+*argc,"--notimestamp") ){
     GridLogTimestamp(0);
   } else {
@@ -615,6 +525,10 @@ void Grid_init(int *argc,char ***argv)
 
 void Grid_finalize(void)
 {
+  std::cout<<GridLogMessage<<"*******************************************"<<std::endl;
+  std::cout<<GridLogMessage<<"******* Grid Finalize                ******"<<std::endl;
+  std::cout<<GridLogMessage<<"*******************************************"<<std::endl;
+
 #if defined (GRID_COMMS_MPI) || defined (GRID_COMMS_MPI3) || defined (GRID_COMMS_MPIT)
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Finalize();
@@ -635,8 +549,31 @@ void GridLogLayout() {
 
 void * Grid_backtrace_buffer[_NBACKTRACE];
 
+void Grid_usr_signal_handler(int sig,siginfo_t *si,void * ptr)
+{
+  fprintf(stderr,"Signal handler on host %s\n",hostname);
+  fprintf(stderr,"Caught signal %d\n",si->si_signo);
+  fprintf(stderr,"  mem address %llx\n",(unsigned long long)si->si_addr);
+  fprintf(stderr,"         code %d\n",si->si_code);
+  // x86 64bit
+#ifdef __linux__
+#ifdef __x86_64__
+  ucontext_t * uc= (ucontext_t *)ptr;
+  struct sigcontext *sc = (struct sigcontext *)&uc->uc_mcontext;
+  fprintf(stderr,"  instruction %llx\n",(unsigned long long)sc->rip);
+#endif
+#endif
+  fflush(stderr);
+  BACKTRACEFP(stderr);
+  fprintf(stderr,"Called backtrace\n");
+  fflush(stdout);
+  fflush(stderr);
+  return;
+}
+
 void Grid_sa_signal_handler(int sig,siginfo_t *si,void * ptr)
 {
+  fprintf(stderr,"Signal handler on host %s\n",hostname);
   fprintf(stderr,"Caught signal %d\n",si->si_signo);
   fprintf(stderr,"  mem address %llx\n",(unsigned long long)si->si_addr);
   fprintf(stderr,"         code %d\n",si->si_code);
@@ -647,7 +584,7 @@ void Grid_sa_signal_handler(int sig,siginfo_t *si,void * ptr)
   ucontext_t * uc= (ucontext_t *)ptr;
   struct sigcontext *sc = (struct sigcontext *)&uc->uc_mcontext;
   fprintf(stderr,"  instruction %llx\n",(unsigned long long)sc->rip);
-#define REG(A)  printf("  %s %lx\n",#A,sc-> A);
+#define REG(A)  fprintf(stderr,"  %s %lx\n",#A,sc-> A);
   REG(rdi);
   REG(rsi);
   REG(rbp);
@@ -680,8 +617,8 @@ void Grid_sa_signal_handler(int sig,siginfo_t *si,void * ptr)
 
 void Grid_exit_handler(void)
 {
-  BACKTRACEFP(stdout);
-  fflush(stdout);
+  //  BACKTRACEFP(stdout);
+  //  fflush(stdout);
 }
 void Grid_debug_handler_init(void)
 {
@@ -689,10 +626,10 @@ void Grid_debug_handler_init(void)
   sigemptyset (&sa.sa_mask);
   sa.sa_sigaction= Grid_sa_signal_handler;
   sa.sa_flags    = SA_SIGINFO;
-  sigaction(SIGSEGV,&sa,NULL);
+  //  sigaction(SIGSEGV,&sa,NULL);
   sigaction(SIGTRAP,&sa,NULL);
   sigaction(SIGBUS,&sa,NULL);
-  sigaction(SIGUSR2,&sa,NULL);
+  //  sigaction(SIGUSR2,&sa,NULL);
 
   feenableexcept( FE_INVALID|FE_OVERFLOW|FE_DIVBYZERO);
 
@@ -700,7 +637,14 @@ void Grid_debug_handler_init(void)
   sigaction(SIGKILL,&sa,NULL);
   sigaction(SIGILL,&sa,NULL);
 
-  atexit(Grid_exit_handler);
+  // Non terminating SIGUSR1/2 handler
+  struct sigaction sa_ping;
+  sigemptyset (&sa_ping.sa_mask);
+  sa_ping.sa_sigaction= Grid_usr_signal_handler;
+  sa_ping.sa_flags    = SA_SIGINFO;
+  sigaction(SIGHUP,&sa_ping,NULL);
+
+  //  atexit(Grid_exit_handler);
 }
 
 NAMESPACE_END(Grid);

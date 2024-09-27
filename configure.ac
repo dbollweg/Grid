@@ -225,27 +225,6 @@ case ${ac_SFW_FP16} in
       AC_MSG_ERROR(["SFW FP16 option not supported ${ac_SFW_FP16}"]);;
 esac
 
-############### Default to accelerator cshift, but revert to host if UCX is buggy or other reasons
-AC_ARG_ENABLE([accelerator-cshift],
-    [AS_HELP_STRING([--enable-accelerator-cshift=yes|no],[run cshift on the device])],
-    [ac_ACC_CSHIFT=${enable_accelerator_cshift}], [ac_ACC_CSHIFT=yes])
-
-AC_ARG_ENABLE([ucx-buggy],
-    [AS_HELP_STRING([--enable-ucx-buggy=yes|no],[enable workaround for UCX device buffer bugs])],
-    [ac_UCXBUGGY=${enable_ucx_buggy}], [ac_UCXBUGGY=no])
-
-case ${ac_UCXBUGGY} in
-    yes)
-    ac_ACC_CSHIFT=no;;
-    *);;
-esac
-
-case ${ac_ACC_CSHIFT} in
-    yes)
-      AC_DEFINE([ACCELERATOR_CSHIFT],[1],[ UCX device buffer bugs are not present]);;
-    *);;
-esac
-
 
 ############### SYCL/CUDA/HIP/none
 AC_ARG_ENABLE([accelerator],
@@ -669,16 +648,6 @@ AC_ARG_ENABLE([shm-fast-path],[AS_HELP_STRING([--enable-shm-fast-path],[Allow ke
 case ${ac_SHM_FAST_PATH} in
      yes)
         AC_DEFINE([SHM_FAST_PATH],[1],[SHM_FAST_PATH] )
-      ;;
-     *) ;;
-esac
-
-############### communication type selection
-AC_ARG_ENABLE([comms-threads],[AS_HELP_STRING([--enable-comms-threads | --disable-comms-threads],[Use multiple threads in MPI calls])],[ac_COMMS_THREADS=${enable_comms_threads}],[ac_COMMS_THREADS=yes])
-
-case ${ac_COMMS_THREADS} in
-     yes)
-        AC_DEFINE([GRID_COMMS_THREADING],[1],[GRID_COMMS_NONE] )
       ;;
      *) ;;
 esac
