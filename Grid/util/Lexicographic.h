@@ -49,9 +49,9 @@ namespace Grid{
     static inline void IndexFromCoorReversed (const coor_t& coor,int &index,const coor_t &dims){
       int64_t index64;
       IndexFromCoorReversed(coor,index64,dims);
-      if ( index64>=2*1024*1024*1024LL ){
-	std::cout << " IndexFromCoorReversed " << coor<<" index " << index64<< " dims "<<dims<<std::endl;
-      }
+      //      if ( index64>=2*1024*1024*1024LL ){
+      //	std::cout << " IndexFromCoorReversed " << coor<<" index " << index64<< " dims "<<dims<<std::endl;
+      //      }
       assert(index64<2*1024*1024*1024LL);
       index = (int) index64;
     }
