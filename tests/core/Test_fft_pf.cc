@@ -74,7 +74,7 @@ int main (int argc, char ** argv)
   
   {
     std::cout<<"****************************************"<<std::endl;
-    std::cout << "Testing OverlapWilsonPartialFractionZolotarevFermionD Hw kernel Mom space 4d propagator \n";
+    std::cout << "Testing OverlapWilsonPartialFractionTanhFermionD Hw kernel Mom space 4d propagator \n";
     std::cout<<"****************************************"<<std::endl;
 
     //    LatticeFermionD    src(&GRID); gaussian(pRNG,src);
@@ -88,7 +88,7 @@ int main (int argc, char ** argv)
 
     RealD mass=0.1;
     RealD M5  =0.8;
-    OverlapWilsonPartialFractionZolotarevFermionD Dov(Umu,*FGrid,*FrbGrid,GRID,RBGRID,mass,M5,0.001,8.0);
+    OverlapWilsonPartialFractionTanhFermionD Dov(Umu,*FGrid,*FrbGrid,GRID,RBGRID,mass,M5,1.0);
 
     // Momentum space prop
     std::cout << " Solving by FFT and Feynman rules" <<std::endl;
@@ -119,7 +119,7 @@ int main (int argc, char ** argv)
     std::cout << " Solving by Conjugate Gradient (CGNE)" <<std::endl;
     Dov.Mdag(src5,tmp5);
     src5=tmp5;
-    MdagMLinearOperator<OverlapWilsonPartialFractionZolotarevFermionD,LatticeFermionD> HermOp(Dov);
+    MdagMLinearOperator<OverlapWilsonPartialFractionTanhFermionD,LatticeFermionD> HermOp(Dov);
     ConjugateGradient<LatticeFermionD> CG(1.0e-8,10000);
     CG(HermOp,src5,result5);
     std::cout << " Solved by Conjugate Gradient (CGNE)" <<std::endl;
@@ -229,7 +229,7 @@ int main (int argc, char ** argv)
   
   {
     std::cout<<"****************************************"<<std::endl;
-    std::cout<<"Testing OverlapWilsonPartialFractionZolotarevFermionD Hw kernel Mom space 4d propagator with q\n";
+    std::cout<<"Testing OverlapWilsonPartialFractionTanhFermionD Hw kernel Mom space 4d propagator with q\n";
     std::cout<<"****************************************"<<std::endl;
 
     //    LatticeFermionD    src(&GRID); gaussian(pRNG,src);
@@ -243,7 +243,9 @@ int main (int argc, char ** argv)
 
     RealD mass=0.1;
     RealD M5  =0.8;
-    OverlapWilsonPartialFractionZolotarevFermionD Dov(Umu,*FGrid,*FrbGrid,GRID,RBGRID,mass,M5,0.001,8.0);
+    OverlapWilsonPartialFractionTanhFermionD Dov(Umu,*FGrid,*FrbGrid,GRID,RBGRID,mass,M5,1.0);
+    std::vector<RealD> qmu({1.0,0.0,0.0,0.0});
+    Dov.set_qmu(qmu);
 
     // Momentum space prop
     std::cout << " Solving by FFT and Feynman rules" <<std::endl;
@@ -274,7 +276,7 @@ int main (int argc, char ** argv)
     std::cout << " Solving by Conjugate Gradient (CGNE)" <<std::endl;
     Dov.Mdag(src5,tmp5);
     src5=tmp5;
-    MdagMLinearOperator<OverlapWilsonPartialFractionZolotarevFermionD,LatticeFermionD> HermOp(Dov);
+    MdagMLinearOperator<OverlapWilsonPartialFractionTanhFermionD,LatticeFermionD> HermOp(Dov);
     ConjugateGradient<LatticeFermionD> CG(1.0e-8,10000);
     CG(HermOp,src5,result5);
     ////////////////////////////////////////////////////////////////////////

@@ -33,6 +33,8 @@ Author: Peter Boyle <paboyle@ph.ed.ac.uk>
 ///////////////////////////////////
 #include <Grid/communicator/SharedMemory.h>
 
+#define NVLINK_GET
+
 NAMESPACE_BEGIN(Grid);
 
 extern bool Stencil_force_mpi ;
@@ -127,7 +129,7 @@ public:
   void GlobalSumVector(ComplexD *c,int N);
   void GlobalXOR(uint32_t &);
   void GlobalXOR(uint64_t &);
-  
+
   template<class obj> void GlobalSumP2P(obj &o)
   {
     std::vector<obj> column;
@@ -136,7 +138,7 @@ public:
     for(int d=0;d<_ndimension;d++){
       column.resize(_processors[d]);
       column[0] = accum;
-      std::vector<CommsRequest_t> list;
+      std::vector<MpiCommsRequest_t> list;
       for(int p=1;p<_processors[d];p++){
 	ShiftedRanks(d,p,source,dest);
 	SendToRecvFromBegin(list,
@@ -166,8 +168,8 @@ public:
   ////////////////////////////////////////////////////////////
   // Face exchange, buffer swap in translational invariant way
   ////////////////////////////////////////////////////////////
-  void CommsComplete(std::vector<CommsRequest_t> &list);
-  void SendToRecvFromBegin(std::vector<CommsRequest_t> &list,
+  void CommsComplete(std::vector<MpiCommsRequest_t> &list);
+  void SendToRecvFromBegin(std::vector<MpiCommsRequest_t> &list,
 			   void *xmit,
 			   int dest,
 			   void *recv,
@@ -185,6 +187,17 @@ public:
 			       void *recv,
 			       int recv_from_rank,int do_recv,
 			       int bytes,int dir);
+
+  double StencilSendToRecvFromPrepare(std::vector<CommsRequest_t> &list,
+				      void *xmit,
+				      int xmit_to_rank,int do_xmit,
+				      void *recv,
+				      int recv_from_rank,int do_recv,
+				      int xbytes,int rbytes,int dir);
+
+  // Could do a PollHtoD and have a CommsMerge dependence
+  void StencilSendToRecvFromPollDtoH (std::vector<CommsRequest_t> &list);
+  void StencilSendToRecvFromPollIRecv(std::vector<CommsRequest_t> &list);
 
   double StencilSendToRecvFromBegin(std::vector<CommsRequest_t> &list,
 				    void *xmit,
