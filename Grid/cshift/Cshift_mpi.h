@@ -126,8 +126,8 @@ template<class vobj> void Cshift_comms(Lattice<vobj> &ret,const Lattice<vobj> &r
   static deviceVector<vobj> send_buf; send_buf.resize(buffer_size);
   static deviceVector<vobj> recv_buf; recv_buf.resize(buffer_size);
 #ifndef ACCELERATOR_AWARE_MPI
-  static std::vector<vobj> hsend_buf;  hsend_buf.resize(buffer_size);
-  static std::vector<vobj> hrecv_buf;  hrecv_buf.resize(buffer_size);
+  static hostVector<vobj> hsend_buf; hsend_buf.resize(buffer_size);
+  static hostVector<vobj> hrecv_buf; hrecv_buf.resize(buffer_size);
 #endif
   
   int cb= (cbmask==0x2)? Odd : Even;
@@ -244,14 +244,13 @@ template<class vobj> void  Cshift_comms_simd(Lattice<vobj> &ret,const Lattice<vo
   scalar_object *  recv_buf_extract_mpi;
   scalar_object *  send_buf_extract_mpi;
 
-
   for(int s=0;s<Nsimd;s++){
     send_buf_extract[s].resize(buffer_size);
     recv_buf_extract[s].resize(buffer_size);
   }
 #ifndef ACCELERATOR_AWARE_MPI
-  std::vector<scalar_object> hsend_buf; hsend_buf.resize(buffer_size);
-  std::vector<scalar_object> hrecv_buf; hrecv_buf.resize(buffer_size);
+  hostVector<scalar_object> hsend_buf; hsend_buf.resize(buffer_size);
+  hostVector<scalar_object> hrecv_buf; hrecv_buf.resize(buffer_size);
 #endif
   
   int bytes = buffer_size*sizeof(scalar_object);

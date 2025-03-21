@@ -518,7 +518,6 @@ public:
     }
     accelerator_barrier(); // All my local gathers are complete
 #ifdef NVLINK_GET
-    #warning "NVLINK_GET"
     _grid->StencilBarrier(); // He can now get mu local gather, I can get his
     // Synch shared memory on a single nodes; could use an asynchronous barrier here and defer check
     // Or issue barrier AFTER the DMA is running
