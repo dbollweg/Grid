@@ -190,13 +190,16 @@ std::vector<RealD> GradientFlowBase<Gimpl, GaugeAction>::flowMeasureEnergyDensit
   return flowMeasureEnergyDensityCloverleaf(V,U, measure_interval);
 }
 
-template <class Gimpl, class GaugeAction>
-void GradientFlowBase<Gimpl, GaugeAction>::setDefaultMeasurements(int topq_meas_interval){
-  addMeasurement(1, [](int step, RealD t, const typename Gimpl::GaugeField &U){
-      std::cout << GridLogMessage << "[GradientFlow] Energy density (plaq) : "  << step << "  " << t << "  " << energyDensityPlaquette(t,U) << std::endl;
+template <class Gimpl>
+void WilsonFlowBase<Gimpl>::setDefaultMeasurements(int meas_interval){
+  addMeasurement(meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
+      std::cout << GridLogMessage << "[WilsonFlow] Energy density (plaq) : "  << step << "  " << t << "  " << energyDensityPlaquette(t,U) << std::endl;
     });
-  addMeasurement(topq_meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
-      std::cout << GridLogMessage << "[GradientFlow] Top. charge           : "  << step << "  " << WilsonLoops<Gimpl>::TopologicalCharge(U) << std::endl;
+  addMeasurement(meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
+      std::cout << GridLogMessage << "[WilsonFlow] Energy density (cloverleaf) : "  << step << "  " << t << "  " << energyDensityCloverleaf(t,U) << std::endl;
+    });
+  addMeasurement(meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
+      std::cout << GridLogMessage << "[WilsonFlow] Top. charge           : "  << step << "  " << WilsonLoops<Gimpl>::TopologicalCharge(U) << std::endl;
     });
 }
 
