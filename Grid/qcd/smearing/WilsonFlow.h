@@ -190,8 +190,8 @@ std::vector<RealD> GradientFlowBase<Gimpl, GaugeAction>::flowMeasureEnergyDensit
   return flowMeasureEnergyDensityCloverleaf(V,U, measure_interval);
 }
 
-template <class Gimpl>
-void GradientFlowBase<Gimpl>::setDefaultMeasurements(int meas_interval){
+template <class Gimpl, class GaugeAction>
+void GradientFlowBase<Gimpl, GaugeAction>::setDefaultMeasurements(int meas_interval){
   addMeasurement(meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
       std::cout << GridLogMessage << "[WilsonFlow] Energy density (plaq) : "  << step << "  " << t << "  " << energyDensityPlaquette(t,U) << std::endl;
     });
