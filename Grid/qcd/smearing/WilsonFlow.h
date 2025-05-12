@@ -191,7 +191,7 @@ std::vector<RealD> GradientFlowBase<Gimpl, GaugeAction>::flowMeasureEnergyDensit
 }
 
 template <class Gimpl>
-void WilsonFlowBase<Gimpl>::setDefaultMeasurements(int meas_interval){
+void GradientFlowBase<Gimpl>::setDefaultMeasurements(int meas_interval){
   addMeasurement(meas_interval, [](int step, RealD t, const typename Gimpl::GaugeField &U){
       std::cout << GridLogMessage << "[WilsonFlow] Energy density (plaq) : "  << step << "  " << t << "  " << energyDensityPlaquette(t,U) << std::endl;
     });
