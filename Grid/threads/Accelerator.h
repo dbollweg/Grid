@@ -337,7 +337,7 @@ accelerator_inline int acceleratorSIMTlane(int Nsimd) {
     cgh.parallel_for(							\
 		     sycl::nd_range<3>(global,local),			\
 		     [=] (sycl::nd_item<3> item) /*mutable*/		\
-		     [[intel::reqd_sub_group_size(16)]]			\
+		     [[sycl::reqd_sub_group_size(16)]]			\
 		     {							\
 		       auto iter1    = item.get_global_id(0);		\
 		       auto iter2    = item.get_global_id(1);		\

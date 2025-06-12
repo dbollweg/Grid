@@ -641,9 +641,8 @@ void Grid_debug_handler_init(void)
   sigaction(SIGBUS,&sa,NULL);
   //  sigaction(SIGUSR2,&sa,NULL);
 
-  feenableexcept( FE_INVALID|FE_OVERFLOW|FE_DIVBYZERO);
+  //feenableexcept( FE_INVALID|FE_OVERFLOW|FE_DIVBYZERO);
 
-  sigaction(SIGFPE,&sa,NULL);
   sigaction(SIGKILL,&sa,NULL);
   sigaction(SIGILL,&sa,NULL);
 
@@ -652,8 +651,10 @@ void Grid_debug_handler_init(void)
   sigemptyset (&sa_ping.sa_mask);
   sa_ping.sa_sigaction= Grid_usr_signal_handler;
   sa_ping.sa_flags    = SA_SIGINFO;
-  sigaction(SIGHUP,&sa_ping,NULL);
+  //sigaction(SIGFPE,&sa_ping,NULL);
 
+  sigaction(SIGHUP,&sa_ping,NULL);
+  sigaction(SIGUSR2, &sa_ping, NULL);
   //  atexit(Grid_exit_handler);
 }
 
