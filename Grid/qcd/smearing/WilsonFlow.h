@@ -238,6 +238,11 @@ void GradientFlow<Gimpl, GaugeAction>::smear(GaugeField& out, const GaugeField& 
 
   out = in;
   RealD taus = 0.;
+
+  // Perform initial t=0 measurements
+  for(auto const &meas : this->functions)
+    meas.second(0,taus,out);
+  
   for (unsigned int step = 1; step <= Nstep; step++) { //step indicates the number of smearing steps applied at the time of measurement
     auto start = std::chrono::high_resolution_clock::now();
     evolve_step(out, taus);
@@ -322,6 +327,11 @@ void GradientFlowAdaptive<Gimpl,GaugeAction>::smear(GaugeField& out, const Gauge
   RealD taus = 0.;
   RealD eps = init_epsilon;
   unsigned int step = 0;
+
+  // Perform initial t=0 measurements
+  for(auto const &meas : this->functions)
+    meas.second(step,taus,out);
+  
   do{
     int step_success = evolve_step_adaptive(out, taus, eps); 
     step += step_success; //step will not be incremented if the integration step fails
