@@ -134,7 +134,7 @@ RealD GradientFlowBase<Gimpl, GaugeAction>::energyDensityCloverleaf(const RealD 
   typedef typename Gimpl::GaugeLinkField GaugeMat;
   typedef typename Gimpl::GaugeField GaugeLorentz;
 
-  assert(Nd == 4);
+  GRID_ASSERT(Nd == 4);
   //E = 1/2 tr( F_munu F_munu )
   //However as  F_numu = -F_munu, only need to sum the trace of the squares of the following 6 field strengths:
   //F_01 F_02 F_03   F_12 F_13  F_23

@@ -5,11 +5,13 @@
 #PBS -l filesystems=home
 #PBS -l select=2
 #PBS -l walltime=00:20:00
-#PBS -A LatticeQCD_aesp_CNDA
+#PBS -A StructNGB
 
 cd $PBS_O_WORKDIR
 
 source ../sourceme.sh
+export HDF5=/opt/cray/pe/hdf5/1.12.2.3/gnu/9.1
+export LD_LIBRARY_PATH=$HDF5/lib:$LD_LIBRARY_PATH
 
 cp $PBS_NODEFILE nodefile
 
